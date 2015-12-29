@@ -34,10 +34,7 @@ chunks. The recommended value for long data sets is to let chunklength be at
 least 10-20x nsamp.
 """
 
-function estimate_covariance(timeseries::Vector)
-    const N = length(timeseries)
-    estimate_covariance(timeseries, N-1)
-end
+estimate_covariance(timeseries::Vector) = estimate_covariance(timeseries, length(timeseries))
 
 function estimate_covariance(timeseries::Vector, nsamp::Int)
     const N = length(timeseries)
@@ -49,7 +46,7 @@ end
 
 function estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)
     const N = length(timeseries)
-    if nsamp >= N
+    if nsamp > N
         error("Cannot compute $(nsamp) covariance values from a length-$N data.")
     end
     paddedsize = padded_length(chunklength+nsamp)

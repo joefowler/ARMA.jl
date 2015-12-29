@@ -15,7 +15,9 @@ for i=1:10
     @test ARMA.padded_length(j) >= j
 end
 
-@test estimate_covariance([0,2,0,-2]) == [2.0, 0.0, -2.0]
+# estimate_covariance
+
+@test estimate_covariance([0,2,0,-2]) == [2.0, 0.0, -2.0, 0.0]
 u = randn(1026)
 r = u[3:end] + u[1:end-2] + 2*u[2:end-1]
 cv = estimate_covariance(r, 20)
@@ -23,3 +25,6 @@ cv = estimate_covariance(r, 20)
 @test abs(cv[2] - 4) < 1
 @test abs(cv[3] - 1) < 1
 @test abs(cv[4]) < 1
+
+@test estimate_covariance(u, 10) == estimate_covariance(u, 10, div(1026, div(1025+150,150)))
+@test length(estimate_covariance(u)) == length(u)
