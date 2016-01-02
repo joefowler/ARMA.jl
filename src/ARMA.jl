@@ -1,10 +1,13 @@
 module ARMA
 
-# package code goes here
+using Polynomials, NLsolve
+
 export
-    estimate_covariance
     estimate_covariance,
     ARMAModel,
+    generate_noise,
+    model_covariance,
+    model_psd
 
 include("model_selection.jl")
 
@@ -115,6 +118,66 @@ function ARMAModel(thetacoef::Vector, phicoef::Vector)
 
     covarIV, expbases, expampls = _covar_repr(thetacoef, phicoef)
     ARMAModel(p,q,sigma,roots_,poles,thetacoef,phicoef,covarIV,expbases,expampls)
+end
+
+
+"generate a simulated noise timeseries from an ARMAModel of length N"
+function generate_noise(m::ARMAModel, N::Int)
+    # eps = white N(0,1) noise; x = after MA process; z = after inverting AR
+    eps = randn(N+m.q)
+    eps[1:m.p] = 0
+    x = zeros(Float64, N)
+    z = zeros(Float64, N)
+    for i=1:m.q+1
+        x += eps[i:end+i-m.p-1] * m.thetacoef[i]
+    end
+    for j=1:m.p
+        z[j] = x[j]
+        for i = 2:j
+            z[j] -= m.phicoef[i] * z[j-i+1]
+        end
+    end
+    for j=1+m.p:N
+        z[j] = x[j]
+        for i = 2:m.p+1
+            z[j] -= m.phicoef[i] * z[j-i+1]
+        end
+    end
+    z
+end
+
+"The ARMA model's model covariance function, from lags 0 to N-1"
+function model_covariance(covarIV::Vector, phicoef::Vector, N::Int)
+    covar = zeros(Float64, N)
+    covar[1:length(covarIV)] = covarIV
+    @assert phicoef[1] == 1.0
+    for i = length(covarIV)+1:N
+        for j = 1:length(phicoef)-1
+            covar[i] -= phicoef[j+1] * covar[i-j]
+        end
+    end
+    covar
+end
+model_covariance(m::ARMAModel, N::Int) = model_covariance(m.covarIV, m.phicoef, N)
+
+
+"The ARMA model's power spectral density function"
+function model_psd(m::ARMAModel, N::Int)
+    freq = collect(linspace(0,0.5,N))
+    model_psd(m, freq)
+end
+
+function model_psd(m::ARMAModel, freq::Vector)
+    z = exp(-2im*pi *freq)
+    numer = m.thetacoef[1]
+    for i=1:m.q
+        numer += m.thetacoef[i+1] * (z.^i)
+    end
+    denom = m.phicoef[1]
+    for i=1:m.p
+        denom += m.phicoef[i+1] * (z.^i)
+    end
+    abs2(numer ./ denom)
 end
 
 end # module

@@ -1,9 +1,9 @@
 using ARMA
 using Base.Test
 
-# write your own tests here
-@test 1 == 1
+# padded_length: rounds up to convenient size for FFT
 
+@test ARMA.padded_length(1000) == 1024
 @test ARMA.padded_length(16) == 16
 @test ARMA.padded_length(12) == 16
 @test ARMA.padded_length(11) == 12
@@ -28,3 +28,34 @@ cv = estimate_covariance(r, 20)
 
 @test estimate_covariance(u, 10) == estimate_covariance(u, 10, div(1026, div(1025+150,150)))
 @test length(estimate_covariance(u)) == length(u)
+
+function similar_list(a::Vector, b::Vector, eps)
+    @assert length(a) == length(b)
+    for a1 in a
+        if all(abs2(b - a1) .> eps^2)
+            return false
+        end
+    end
+    for b1 in b
+        if all(abs2(a - b1) .> eps^2)
+            return false
+        end
+    end
+    true
+end
+
+# ARMAModel constructors
+p,q = 3,3
+rs = 1+(randn(q) .^ 2)
+ps = 1+(randn(p) .^ 2)
+sigma = 1.0
+m = ARMAModel(sigma, rs, ps)
+@test m.p == p
+@test m.q == q
+n = ARMAModel(m.thetacoef, m.phicoef)
+@show m.roots_
+@show n.roots_
+@test m.thetacoef == n.thetacoef
+@test m.phicoef == n.phicoef
+@test similar_list(m.roots_, n.roots_, 1e-7)
+@test similar_list(m.poles, n.poles, 1e-7)
