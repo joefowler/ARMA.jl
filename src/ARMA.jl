@@ -120,6 +120,71 @@ function ARMAModel(thetacoef::Vector, phicoef::Vector)
     ARMAModel(p,q,sigma,roots_,poles,thetacoef,phicoef,covarIV,expbases,expampls)
 end
 
+# Construct ARMAModel from a sum-of-exponentials representation
+function ARMAModel(bases::Vector, amplitudes::Vector, covarIV::Vector, q::Int)
+    p = length(bases)
+    @assert p == length(amplitudes)
+    @assert length(covarIV) >= q-p+1
+
+    # Find the covariance from lags 0 to p+q. Call it gamma
+    gamma = zeros(Float64, 1+p+q)
+    t = collect(0:p+q)
+    for i=1:p
+        gamma += real(amplitudes[i] * (bases[i] .^ t))
+    end
+    gamma[1:length(covarIV)] = covarIV
+
+    # Find the phi polynomial
+    poles = 1.0 ./ bases
+    phic = poly(poles).a
+    phicoef = phic / phic[1]
+
+    # Find the nonlinear system of equations for the theta coefficients
+    LHS = zeros(Float64, 1+q)
+    for t=0:q
+        for i=1:p+1
+            for j=1:p+1
+                LHS[t+1] += phicoef[i]*phicoef[j]*gamma[1+abs(t+i-j)]
+            end
+        end
+    end
+    @show gamma
+    @show LHS
+
+    # Solve the system! TODO
+    function f!(x, residual)
+        q = length(residual)-1
+        for t = 0:q
+            residual[t+1] = LHS[t+1]
+            for j = 0:q-t
+                residual[t+1] -= x[j+1]*x[j+t+1]
+            end
+        end
+        residual
+    end
+    thetacoef = ones(Float64, q+1)
+    #df = DifferentiableMultivariateFunction(f!)
+    results = nlsolve(f!, thetacoef)
+    @show results
+    roots_ = roots(Poly(results.zero))
+
+    # Now a clever trick: any roots of the MA polynomial that are INSIDE
+    # the unit circle can be replaced by 1/r and yield the same covariance.
+    @show abs2(roots_)
+    for i=1:q
+        if abs2(roots_[i]) < 1
+            roots_[i] = 1.0/roots_[i]
+        end
+    end
+    # Of course, the polynomial needs to be re-made in case any roots moved
+    thetac = poly(roots_).a
+    sigma = sqrt(real(gamma[1]))
+    thetacoef = sigma * thetac / thetac[1]
+    @show abs2(roots_)
+
+
+    ARMAModel(p,q,sigma,roots_,poles,thetacoef,phicoef,gamma[1:1+max(p,q)],bases,amplitudes)
+end
 
 "generate a simulated noise timeseries from an ARMAModel of length N"
 function generate_noise(m::ARMAModel, N::Int)
