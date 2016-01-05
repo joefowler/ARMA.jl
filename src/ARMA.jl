@@ -7,7 +7,12 @@ export
     ARMAModel,
     generate_noise,
     model_covariance,
-    model_psd
+    model_psd,
+    toeplitz_whiten
+
+# ARMA.jl includes the basic ARMA models and their use
+# model_selection.jl includes tools for choosing a model (p,q) order
+#   and for fitting the best model of that order.
 
 include("model_selection.jl")
 
@@ -165,7 +170,6 @@ function ARMAModel(bases::Vector, amplitudes::Vector, covarIV::Vector, q::Int)
     thetacoef = ones(Float64, q+1)
     #df = DifferentiableMultivariateFunction(f!)
     results = nlsolve(f!, thetacoef)
-    @show results
     roots_ = roots(Poly(results.zero))
 
     # Now a clever trick: any roots of the MA polynomial that are INSIDE
@@ -243,6 +247,53 @@ function model_psd(m::ARMAModel, freq::Vector)
         denom += m.phicoef[i+1] * (z.^i)
     end
     abs2(numer ./ denom)
+end
+
+"Approximately whiten the timestream using a Toeplitz matrix (so
+that a zero-padded delay of the input timestream is equivalent to a
+zero-padded delay of the output).
+
+No Toeplitz matrix has the ability to make the input exactly white,
+but for many purposes, the time-shift property is more valuable than
+that exact whitening."
+function toeplitz_whiten(m::ARMAModel, timestream::Vector)
+    N = length(timestream)
+    white = zeros(Float64, N)
+
+    # First, multiply the input by the AR matrix (a banded Toeplitz
+    # matrix with the phi coefficients on the diagonal and first p
+    # subdiagonals).
+    # The result is the MA matrix times the whitened data.
+    MAonly = m.phicoef[1] * timestream
+    for i=1:m.p
+        MAonly[1+i:end] .+= m.phicoef[i+1] * timestream[1:end-i]
+    end
+
+    # Second, solve the MA matrix (also a banded Toeplitz matrix with
+    # q non-zero subdiagonals.)
+    white[1] = MAonly[1] / m.thetacoef[1]
+    if N==1
+        return white
+    end
+    for i = 2:min(m.q, N)
+        white[i] = MAonly[i]
+        for j = 1:i-1
+            white[i] -= white[j]*m.thetacoef[1+i-j]
+        end
+        white[i] /= m.thetacoef[1]
+    end
+    for i = m.q+1:N
+        white[i] = MAonly[i]
+        for j = i-m.q:i-1
+            white[i] -= white[j]*m.thetacoef[1+i-j]
+        end
+        white[i] /= m.thetacoef[1]
+    end
+    white
+end
+
+function toeplitz_whiten!(m::ARMAModel, timestream::Vector)
+    timestream[1:end] = toeplitz_whiten(m, timestream)
 end
 
 end # module
