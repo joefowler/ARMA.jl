@@ -24,7 +24,9 @@ cv = estimate_covariance(r, 20)
 @test abs(cv[1] - 6) < 1
 @test abs(cv[2] - 4) < 1
 @test abs(cv[3] - 1) < 1
-@test abs(cv[4]) < 1
+for lag = 4:19
+    @test abs(cv[lag]) < 1
+end
 
 @test estimate_covariance(u, 10) == estimate_covariance(u, 10, div(1026, div(1025+150,150)))
 @test length(estimate_covariance(u)) == length(u)
@@ -53,8 +55,6 @@ m = ARMAModel(sigma, rs, ps)
 @test m.p == p
 @test m.q == q
 n = ARMAModel(m.thetacoef, m.phicoef)
-@show m.roots_
-@show n.roots_
 @test m.thetacoef == n.thetacoef
 @test m.phicoef == n.phicoef
 @test similar_list(m.roots_, n.roots_, 1e-7)

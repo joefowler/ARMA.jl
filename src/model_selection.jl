@@ -65,8 +65,6 @@ function estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)
         result += acsum[1:nsamp]
         i += chunklength
     end
-    result = result / chunks_consumed
-    result ./ collect(chunklength:-1:chunklength+1-nsamp)
-    result
+    result ./ (chunks_consumed * collect(chunklength:-1:chunklength+1-nsamp))
 
 end
