@@ -46,12 +46,12 @@ function similar_list(a::Vector, b::Vector, eps)
     true
 end
 
-# ARMAModel constructors
+# Basic tests of ARMAModel constructors
 p,q = 3,3
 rs = 1+(randn(q) .^ 2)
 ps = 1+(randn(p) .^ 2)
-sigma = 1.0
-m = ARMAModel(sigma, rs, ps)
+variance = 1.0
+m = ARMAModel(rs, ps, variance)
 @test m.p == p
 @test m.q == q
 n = ARMAModel(m.thetacoef, m.phicoef)
