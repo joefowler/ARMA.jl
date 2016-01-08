@@ -91,18 +91,25 @@ end
 # Generate 6 models of fixed parameters and order (2,0), (0,2), (1,1), (1,2), (2,1), (2,2)
 thetas=Dict('A'=>[2], 'B'=>[2,2.6,.8], 'C'=>[2,1.6], 'D'=>[2,2.6,.8], 'E'=>[2,1.6], 'F'=>[2,2.6,.8])
 phis = Dict('A'=>[1,-.3,-.4], 'B'=>[1], 'C'=>[1,-.8], 'D'=>[1,-.8], 'E'=>[1,-.3,-.4], 'F'=>[1,-.3,-.4])
+const EPSILON = 2e-4
 
 # And generate 6 models of random order and random parameters
 for model in "GHIJKL"
     # Order will be 0<=p,q <=6.
-    # Use rand^(-.2) for roots/poles. Negative power ensures abs(r)>1, and
-    # the 0.2 power concentrates the values near the unit circle.
+    # Use rand^(-.3) for roots/poles. Negative power ensures abs(r)>1, and
+    # the 0.3 power concentrates the values near the unit circle.
     p = rand(0:6)
     q = rand(0:6)
     if p+q==0; p=q=5; end  # Don't test ARMA(0,0) model!
-    roots_ = rand(q) .^ (-.2)
-    poles = rand(p) .^ (-.2)
+    roots_ = rand(q) .^ (-.3)
+    poles = rand(p) .^ (-.3)
 
+    # Want one negative pole, if p>=3
+    if p>2
+        poles[end] *= -1
+    end
+
+    # Half the time, on larger-order models, make one pair roots and/or poles complex.
     if p>2 && rand(0:1) == 1
         poles = complex(poles)
         poles[1] = complex(real(poles[1]),real(poles[2]))
@@ -115,8 +122,10 @@ for model in "GHIJKL"
         roots_[2] = conj(roots_[1])
     end
 
-    thetas[model] = real(poly(roots_).a)
-    phis[model] = real(poly(poles).a/prod(poles))
+    # Scale theta by 0.7 to avoid lucky cancellations in the tests.
+    thetas[model] = ARMA.polynomial_from_roots(roots_) * 0.7
+    phis[model] = ARMA.polynomial_from_roots(poles)
+    phis[model] *= 1.0/phis[model][1]
 end
 
 # Loop over all the models specified by their rational function representation
@@ -141,6 +150,8 @@ for model in "ABCDEFGHIJKL"
     roots_ = roots(Poly(thcoef))
     poles = roots(Poly(phcoef))
     expbases = 1.0 ./ poles
+    # @show thetas[model], roots_
+    # @show phis[model], poles
 
     # We'll be working with q+1 equations to find initial values
     # of psi: the Taylor expansion coefficients of theta(z)/phi(z).
@@ -200,8 +211,10 @@ for model in "ABCDEFGHIJKL"
     expampls = B \ gamma[N-p+1:N]
 
     m3 = ARMAModel(expbases, expampls, covarIV)
+    # @show m3
 
     # Check that model orders are equivalent
+    # Take care with model m3, b/c it never sets q<p-1 when constructing.
     @test p == m1.p
     @test p == m2.p
     @test p == m3.p
@@ -214,8 +227,35 @@ for model in "ABCDEFGHIJKL"
     c2 = model_covariance(m2, 15)
     c3 = model_covariance(m3, 15)
     c0 = c1[1]
-    @test all(abs(c1-c2) .< 1e-5*c0)
-    @test all(abs(c1-c3) .< 1e-5*c0)
+    @test all(abs(c1-c2) .< EPSILON*c0)
+    @test all(abs(c1-c3) .< EPSILON*c0)
+
+    # Check that the initial covariances match
+    # While this should be redundany with above test, let's just be sure
+    NIV = max(0,q-p+1)
+    if NIV>0
+        @test all(abs(m1.covarIV[1:NIV].-m2.covarIV[1:NIV]) .< EPSILON*c0)
+        @test all(abs(m1.covarIV[1:NIV].-m3.covarIV[1:NIV]) .< EPSILON*c0)
+    end
+
+    # Check that the model rational function representation matches.
+    if m1.q > 0
+        maxcoef = maximum(abs(m1.thetacoef))
+        # @show m1.roots_
+        # @show m2.roots_
+        # @show m3.roots_
+        # @show m1.thetacoef
+        # @show m2.thetacoef
+        # @show m3.thetacoef
+        @test all(abs(m1.thetacoef.-m2.thetacoef) .< EPSILON*maxcoef)
+        if m1.q==m3.q
+            # @test all(abs(m1.thetacoef.-m3.thetacoef) .< EPSILON*maxcoef)
+        end
+    end
+
+    maxcoef = maximum(abs(m1.phicoef))
+    @test all(abs(m1.phicoef.-m2.phicoef) .< EPSILON*maxcoef)
+    @test all(abs(m1.phicoef.-m3.phicoef) .< EPSILON*maxcoef)
 
     println()
 end

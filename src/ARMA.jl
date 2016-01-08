@@ -76,6 +76,8 @@ type ARMAModel
         @assert p == length(expampls)
         @assert length(covarIV) >= 1+q
         @assert length(covarIV) >= p
+        @assert thetacoef[1] > 0
+        @assert phicoef[1] == 1.0
         # Note that these consistency checks don't cover everything. Specifically, we
         # do not test the consistency of the 3 representations with each other. That's
         # done only in the 3 outer constructors.
@@ -84,9 +86,8 @@ type ARMAModel
 end
 
 "Go from theta,phi polynomials to the sum-of-exponentials representation.
+Returns (covar_initial_values, exponential_bases, exponential_amplitudes)."
 
-Returns (covar_initial_values, exponential_bases, exponential_amplitudes).
-"
 function _covar_repr(thetacoef::Vector, phicoef::Vector)
     roots_ = roots(Poly(thetacoef))
     poles = roots(Poly(phicoef))
@@ -139,7 +140,7 @@ end
 
 # Construct from theta and phi polynomial representation
 function ARMAModel(thetacoef::Vector, phicoef::Vector)
-    theta = thetacoef * phicoef[1]
+    theta = thetacoef * phicoef[1] * sign(thetacoef[1])
     phi = phicoef / phicoef[1]
     roots_ = roots(Poly(theta))
     poles = roots(Poly(phi))
@@ -152,13 +153,17 @@ function ARMAModel(thetacoef::Vector, phicoef::Vector)
     ARMAModel(p,q,roots_,poles,theta,phi,covarIV,expbases,expampls)
 end
 
+
 "Form the coefficients of a polynomial from the given roots `r`.
-It is assumed that the coefficients are real."
+It is assumed that the coefficients are real, so only the real part is kept.
+The sign of the constant term is taken to be positive.
+The highest-order term has coefficient +1 or -1."
 
 function polynomial_from_roots(r::Vector)
     pr = prod(r)
     @assert abs(imag(pr)/real(pr)) < 1e-10
-    real(poly(r).a)
+    coef = real(poly(r).a)
+    coef * sign(coef[1])
 end
 
 
@@ -206,7 +211,7 @@ function ARMAModel(bases::Vector, amplitudes::Vector, covarIV::Vector)
 
     # Find the covariance from lags 0 to p+q. Call it gamma
     gamma = zeros(Float64, 1+p+q)
-    t = collect(0:p+q)
+    t = 0:p+q
     for i=1:p
         gamma += real(amplitudes[i] * (bases[i] .^ t))
     end
@@ -244,21 +249,23 @@ function ARMAModel(bases::Vector, amplitudes::Vector, covarIV::Vector)
 
     # Now a clever trick: any roots r of the MA polynomial that are INSIDE
     # the unit circle can be replaced by 1/r and yield the same covariance.
-    # @show abs2(roots_)
-    moved = false
     for i=1:q
         if abs2(roots_[i]) < 1
             roots_[i] = 1.0/roots_[i]
-            moved = true
         end
     end
-    # @show abs2(roots_)
 
-    # Of course, the polynomial needs to be re-made in case any roots moved
-    if moved
-        thetac = polynomial_from_roots(roots_)
-        thetacoef = thetac * (thetacoef[1] / thetac[1])
-    end
+    # Replace thetacoef, in case any roots moved
+    thetacoef = polynomial_from_roots(roots_)
+    thetacoef *= sign(thetacoef[1])
+
+    # One last problem is that theta polynomial is normalized, with theta[end]=1,
+    # which we don't want. Our approach is just to see what the normalized theta
+    # would give for gamma[1] and rescale.
+    gammanorm,_,_ = _covar_repr(thetacoef,phicoef)
+    thetacoef *= sqrt(gamma[1]/gammanorm[1])
+    # @show sqrt(gamma[1]/gammanorm[1]), thetacoef
+    # @show _covar_repr(thetacoef,phicoef)[1], covarIV
 
     ARMAModel(p,q,roots_,poles,thetacoef,phicoef,gamma[1:max(p,q+1)],bases,amplitudes)
 end
