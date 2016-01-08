@@ -1,3 +1,5 @@
+include("RandomMatrix.jl")
+
 
 function padded_length(N::Integer)
     powerof2 = round(Int, 2^ceil(log2(N)))
@@ -66,5 +68,35 @@ function estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)
         i += chunklength
     end
     result ./ (chunks_consumed * collect(chunklength:-1:chunklength+1-nsamp))
+end
 
+
+function HSVD(data::Vector, nexp::Int)
+    N = length(data)
+    ncol = 10 + 2*nexp
+    h = zeros(Float64, N+1-ncol, ncol)
+    for c=1:ncol
+        h[:,c] = data[c:end+1-ncol]
+    end
+    U,S,V = svd(h, thin=true)
+    @show S
+end
+
+
+function fit_exponentials(data::Vector, nexp::Int)
+    HSVD(data, nexp)
+    # Choose nexp leading vectors
+    # Fit for their amplitudes
+    bases = 0.99 .^ (1:nexp)
+    amplitudes = randn(nexp)
+    bases, amplitudes
+end
+
+function fitARMA(covariance::Vector, p::Int, q::Int)
+    nspecial = 1+max(q-p, 0)
+    bases, amplitudes = fit_exponentials(covariance[1+nspecial:end], p)
+    for i=1:nspecial
+        amplitudes ./= bases
+    end
+    ARMAModel(bases, amplitudes, covariance[1:1+nspecial], q)
 end

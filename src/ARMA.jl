@@ -4,6 +4,7 @@ using Polynomials, NLsolve
 
 export
     estimate_covariance,
+    fitARMA,
     ARMAModel,
     generate_noise,
     model_covariance,
