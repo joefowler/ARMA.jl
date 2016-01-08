@@ -74,7 +74,8 @@ type ARMAModel
         @assert q+1 == length(thetacoef)
         @assert p == length(expbases)
         @assert p == length(expampls)
-        @assert length(covarIV) >= 1+q-p
+        @assert length(covarIV) >= 1+q
+        @assert length(covarIV) >= p
         # Note that these consistency checks don't cover everything. Specifically, we
         # do not test the consistency of the 3 representations with each other. That's
         # done only in the 3 outer constructors.
@@ -151,19 +152,33 @@ function ARMAModel(thetacoef::Vector, phicoef::Vector)
     ARMAModel(p,q,roots_,poles,theta,phi,covarIV,expbases,expampls)
 end
 
+"Form the coefficients of a polynomial from the given roots `r`.
+It is assumed that the coefficients are real."
+
+function polynomial_from_roots(r::Vector)
+    pr = prod(r)
+    @assert abs(imag(pr)/real(pr)) < 1e-10
+    real(poly(r).a)
+end
+
 
 # Construct from roots-and-poles representation. We also need the gamma_0 value
 # (the process variance) to set the scale of the model, as roots-and-poles omits this.
 function ARMAModel(roots_::Vector, poles::Vector, variance)
     @assert all(abs2(roots_) .> 1)
     @assert all(abs2(poles) .> 1)
+    # The product of the roots and the product of the poles needs to be real.
+    pr = prod(roots_)
+    pp = prod(poles)
+    @assert abs(imag(pr)/real(pr)) < 1e-10
+    @assert abs(imag(pp)/real(pp)) < 1e-10
     q = length(roots_)
     p = length(poles)
 
     # Construct normalized MA and AR polynomials.
     # Note that we will NOT have the proper scale at first.
-    thetac = poly(roots_).a
-    phic = poly(poles).a
+    thetac = polynomial_from_roots(roots_)
+    phic = polynomial_from_roots(poles)
     thetacoef = thetac / thetac[1]
     phicoef = phic / phic[1]
 
@@ -171,9 +186,9 @@ function ARMAModel(roots_::Vector, poles::Vector, variance)
 
     # Now that we know the normalized model's covariance, rescale
     # theta, covariance, and the exponential amplitudes to correct it.
-    scale = variance / covarIV[1]
-    ARMAModel(p,q,roots_,poles,thetacoef*scale,phicoef,covarIV*scale,
-                expbases,expampls*scale)
+    scale = sqrt(variance / covarIV[1])
+    covarIV *= variance / covarIV[1]
+    ARMAModel(p,q,roots_,poles,thetacoef*scale,phicoef,covarIV,expbases,expampls*scale)
 end
 
 
@@ -199,7 +214,7 @@ function ARMAModel(bases::Vector, amplitudes::Vector, covarIV::Vector)
 
     # Find the phi polynomial
     poles = 1.0 ./ bases
-    phic = poly(poles).a
+    phic = polynomial_from_roots(poles)
     phicoef = phic / phic[1]
 
     # Find the nonlinear system of equations for the theta coefficients
@@ -211,8 +226,6 @@ function ARMAModel(bases::Vector, amplitudes::Vector, covarIV::Vector)
             end
         end
     end
-    @show gamma
-    @show LHS
 
     # Solve the system
     function f!(x, residual)
@@ -229,21 +242,25 @@ function ARMAModel(bases::Vector, amplitudes::Vector, covarIV::Vector)
     results = nlsolve(f!, thetacoef)
     roots_ = roots(Poly(results.zero))
 
-    # Now a clever trick: any roots of the MA polynomial that are INSIDE
+    # Now a clever trick: any roots r of the MA polynomial that are INSIDE
     # the unit circle can be replaced by 1/r and yield the same covariance.
-    @show abs2(roots_)
+    # @show abs2(roots_)
+    moved = false
     for i=1:q
         if abs2(roots_[i]) < 1
             roots_[i] = 1.0/roots_[i]
+            moved = true
         end
     end
-    # Of course, the polynomial needs to be re-made in case any roots moved
-    thetac = poly(roots_).a
-    sigma = sqrt(real(gamma[1]))
-    thetacoef = sigma * thetac / thetac[1]
-    @show abs2(roots_)
+    # @show abs2(roots_)
 
-    ARMAModel(p,q,roots_,poles,thetacoef,phicoef,gamma[1:1+max(p,q)],bases,amplitudes)
+    # Of course, the polynomial needs to be re-made in case any roots moved
+    if moved
+        thetac = polynomial_from_roots(roots_)
+        thetacoef = thetac * (thetacoef[1] / thetac[1])
+    end
+
+    ARMAModel(p,q,roots_,poles,thetacoef,phicoef,gamma[1:max(p,q+1)],bases,amplitudes)
 end
 
 
@@ -276,7 +293,7 @@ end
 "The ARMA model's model covariance function, from lags 0 to N-1"
 function model_covariance(covarIV::Vector, phicoef::Vector, N::Int)
     covar = zeros(Float64, N)
-    covar[1:length(covarIV)] = covarIV
+    covar[1:length(covarIV)] = covarIV[1:end]
     @assert phicoef[1] == 1.0
     for i = length(covarIV)+1:N
         for j = 1:length(phicoef)-1

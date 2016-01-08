@@ -1,4 +1,4 @@
-using ARMA
+using ARMA, Polynomials
 using Base.Test
 
 # padded_length: rounds up to convenient size for FFT
@@ -18,7 +18,7 @@ end
 # estimate_covariance
 
 @test estimate_covariance([0,2,0,-2]) == [2.0, 0.0, -2.0, 0.0]
-u = randn(1026)
+u = randn(2+2^13)
 r = u[3:end] + u[1:end-2] + 2*u[2:end-1]
 cv = estimate_covariance(r, 20)
 @test abs(cv[1] - 6) < 1
@@ -28,7 +28,7 @@ for lag = 4:19
     @test abs(cv[lag]) < 1
 end
 
-@test estimate_covariance(u, 10) == estimate_covariance(u, 10, div(1026, div(1025+150,150)))
+@test estimate_covariance(u, 10) == estimate_covariance(u, 10, div(length(u), div(length(u)-1+150,150)))
 @test length(estimate_covariance(u)) == length(u)
 
 function similar_list(a::Vector, b::Vector, eps)
@@ -59,3 +59,163 @@ n = ARMAModel(m.thetacoef, m.phicoef)
 @test m.phicoef == n.phicoef
 @test similar_list(m.roots_, n.roots_, 1e-7)
 @test similar_list(m.poles, n.poles, 1e-7)
+
+function toeplitz(c::Vector)
+    N = length(c)
+    t = Array{eltype(c)}(N,N)
+    for i=1:N
+        for j=1:i
+            t[i,j] = t[j,i] = c[1+i-j]
+        end
+    end
+    t
+end
+
+function toeplitz(c::Vector, r::Vector)
+    M,N = length(c), length(r)
+    t = Array{eltype(c)}(M,N)
+    for i=1:M
+        for j=1:i
+            t[i,j] = c[1+i-j]
+        end
+        for j=i+1:N
+            t[i,j] = r[1+j-i]
+        end
+    end
+    t
+end
+
+# Now complete tests of several models that have been worked out carefully on paper,
+# as well as several that are randomly created.
+
+# Generate 6 models of fixed parameters and order (2,0), (0,2), (1,1), (1,2), (2,1), (2,2)
+thetas=Dict('A'=>[2], 'B'=>[2,2.6,.8], 'C'=>[2,1.6], 'D'=>[2,2.6,.8], 'E'=>[2,1.6], 'F'=>[2,2.6,.8])
+phis = Dict('A'=>[1,-.3,-.4], 'B'=>[1], 'C'=>[1,-.8], 'D'=>[1,-.8], 'E'=>[1,-.3,-.4], 'F'=>[1,-.3,-.4])
+
+# And generate 6 models of random order and random parameters
+for model in "GHIJKL"
+    # Order will be 0<=p,q <=6.
+    # Use rand^(-.2) for roots/poles. Negative power ensures abs(r)>1, and
+    # the 0.2 power concentrates the values near the unit circle.
+    p = rand(0:6)
+    q = rand(0:6)
+    if p+q==0; p=q=5; end  # Don't test ARMA(0,0) model!
+    roots_ = rand(q) .^ (-.2)
+    poles = rand(p) .^ (-.2)
+
+    if p>2 && rand(0:1) == 1
+        poles = complex(poles)
+        poles[1] = complex(real(poles[1]),real(poles[2]))
+        poles[2] = conj(poles[1])
+    end
+
+    if q>2 && rand(0:1) == 1
+        roots_ = complex(roots_)
+        roots_[1] = complex(real(roots_[1]),real(roots_[2]))
+        roots_[2] = conj(roots_[1])
+    end
+
+    thetas[model] = real(poly(roots_).a)
+    phis[model] = real(poly(poles).a/prod(poles))
+end
+
+# Loop over all the models specified by their rational function representation
+# in thetas[] and phis[]. For each model, construct it all 3 ways (theta,phi;
+# roots, poles, and variance; or sum-of-exponentials). Verify that the resulting
+# model has the same covariance and other key properties.
+
+for model in "ABCDEFGHIJKL"
+    thcoef = thetas[model]
+    phcoef = phis[model]
+    if phcoef[1] != 1.0
+        thcoef /= phcoef[1]
+        phcoef /= phcoef[1]
+    end
+    @assert phcoef[1] == 1.0
+    const p = length(phcoef)-1
+    const q = length(thcoef)-1
+    println("Working on model $model of order ARMA($p,$q).")
+
+    m1 = ARMAModel(thcoef, phcoef)
+
+    roots_ = roots(Poly(thcoef))
+    poles = roots(Poly(phcoef))
+    expbases = 1.0 ./ poles
+
+    # We'll be working with q+1 equations to find initial values
+    # of psi: the Taylor expansion coefficients of theta(z)/phi(z).
+    # See BD (3.3.3) for the q+1 initial equations and  (3.3.4) for the
+    # homogeneous equations beyond the first q+1. Careful with the sign conventions,
+    # b/c BD uses phi(z) = 1 - (phi1*z + phi2*z^2 + ...), while I prefer a + sign.
+    phpad = zeros(Float64, q+1)
+    if q>p
+        phpad[1:p+1] = phcoef
+    else
+        phpad[1:q+1] = phcoef[1:q+1]
+    end
+
+    psi = copy(thcoef)
+    for j=1:q
+        for k=1:j
+            psi[j+1] -= phpad[k+1]*psi[1+j-k]
+        end
+    end
+
+    # We have to solve for the first N=max(p,q)+1 values of covariance at once.
+    # For these, see BD equation (3.3.8) for the first q+1 equations and (3.3.9)
+    # for the remaining (p-q), if any.
+    N = 1+max(p,q)
+    phN = copy(phcoef)
+    if q>p
+        append!(phN, zeros(Float64, q-p))
+    end
+    A = zeros(Float64, N, N)
+    for i=1:N
+        for j=1:N
+            col = 1+abs(j-i)
+            A[i,col] += phN[j]
+        end
+    end
+    rhs3_3_8 = zeros(Float64, N)
+    for k=1:q+1 # here j,k are both 1 larger than in BD 3.3.8.
+        for j=k:q+1
+            rhs3_3_8[k] += thcoef[j]*psi[1+j-k]
+        end
+    end
+    gamma = A \ rhs3_3_8
+
+    m2 = ARMAModel(roots_, poles, gamma[1])
+
+    if q<p
+        covarIV=Float64[]
+    else
+        covarIV = gamma[1:1+q-p]
+    end
+    B = Array{Complex128}(p,p)
+    for r=1:p
+        for c=1:p
+            B[r,c] = expbases[c]^(N-p+r-1)
+        end
+    end
+    expampls = B \ gamma[N-p+1:N]
+
+    m3 = ARMAModel(expbases, expampls, covarIV)
+
+    # Check that model orders are equivalent
+    @test p == m1.p
+    @test p == m2.p
+    @test p == m3.p
+    @test q == m1.q
+    @test q == m2.q
+    @test max(q, p-1) == m3.q
+
+    # Check that model covariance matches
+    c1 = model_covariance(m1, 15)
+    c2 = model_covariance(m2, 15)
+    c3 = model_covariance(m3, 15)
+    c0 = c1[1]
+    @test all(abs(c1-c2) .< 1e-5*c0)
+    @test all(abs(c1-c3) .< 1e-5*c0)
+
+    println()
+end
