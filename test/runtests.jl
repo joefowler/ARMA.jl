@@ -150,8 +150,6 @@ for model in "ABCDEFGHIJKL"
     roots_ = roots(Poly(thcoef))
     poles = roots(Poly(phcoef))
     expbases = 1.0 ./ poles
-    # @show thetas[model], roots_
-    # @show phis[model], poles
 
     # We'll be working with q+1 equations to find initial values
     # of psi: the Taylor expansion coefficients of theta(z)/phi(z).
@@ -211,7 +209,6 @@ for model in "ABCDEFGHIJKL"
     expampls = B \ gamma[N-p+1:N]
 
     m3 = ARMAModel(expbases, expampls, covarIV)
-    # @show m3
 
     # Check that model orders are equivalent
     # Take care with model m3, b/c it never sets q<p-1 when constructing.
@@ -241,16 +238,10 @@ for model in "ABCDEFGHIJKL"
     # Check that the model rational function representation matches.
     if m1.q > 0
         maxcoef = maximum(abs(m1.thetacoef))
-        # @show m1.roots_
-        # @show m2.roots_
-        # @show m3.roots_
-        # @show m1.thetacoef
-        # @show m2.thetacoef
-        # @show m3.thetacoef
         @test all(abs(m1.thetacoef.-m2.thetacoef) .< EPSILON*maxcoef)
-        if m1.q==m3.q
-            # @test all(abs(m1.thetacoef.-m3.thetacoef) .< EPSILON*maxcoef)
-        end
+        # At this point, the m3 theta polynomial is not at all guaranteed to match
+        # the others, so omit that test for now. If the model_covariance matches,
+        # this test is not critical, but we'll think over how it can be improved.
     end
 
     maxcoef = maximum(abs(m1.phicoef))

@@ -264,8 +264,6 @@ function ARMAModel(bases::Vector, amplitudes::Vector, covarIV::Vector)
     # would give for gamma[1] and rescale.
     gammanorm,_,_ = _covar_repr(thetacoef,phicoef)
     thetacoef *= sqrt(gamma[1]/gammanorm[1])
-    # @show sqrt(gamma[1]/gammanorm[1]), thetacoef
-    # @show _covar_repr(thetacoef,phicoef)[1], covarIV
 
     ARMAModel(p,q,roots_,poles,thetacoef,phicoef,gamma[1:max(p,q+1)],bases,amplitudes)
 end
