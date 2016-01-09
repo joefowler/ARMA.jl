@@ -71,32 +71,36 @@ function estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)
 end
 
 
-function HSVD(data::Vector, nexp::Int)
+function main_exponentials(data::Vector, nexp::Int)
     N = length(data)
     ncol = 10 + 2*nexp
     h = zeros(Float64, N+1-ncol, ncol)
     for c=1:ncol
-        h[:,c] = data[c:end+1-ncol]
+        h[:,c] = data[c:c+N-ncol]
     end
-    U,S,V = svd(h, thin=true)
-    @show S
+    U,s,V = find_svd_randomly(h[1:end-1,:], nexp)
+    W = diagm(1.0 ./ sqrt(s))
+    A = W*U'*h[2:end,:]*V*W
+    @show s, W, A
+    eigvals(A)
 end
 
 
 function fit_exponentials(data::Vector, nexp::Int)
-    HSVD(data, nexp)
-    # Choose nexp leading vectors
-    # Fit for their amplitudes
-    bases = 0.99 .^ (1:nexp)
-    amplitudes = randn(nexp)
+    bases = main_exponentials(data, nexp)
+    # TODO: Fit for their amplitudes
+    N = length(data)
+    M = Array{Float64}(N, nexp)
+    for i=1:nexp
+        M[:,i] = bases[i] .^ (0:N-1)
+    end
+    amplitudes = pinv(M)*data
     bases, amplitudes
 end
 
 function fitARMA(covariance::Vector, p::Int, q::Int)
-    nspecial = 1+max(q-p, 0)
+    nspecial = max(1+q-p, 0)
     bases, amplitudes = fit_exponentials(covariance[1+nspecial:end], p)
-    for i=1:nspecial
-        amplitudes ./= bases
-    end
-    ARMAModel(bases, amplitudes, covariance[1:1+nspecial], q)
+    amplitudes ./= (bases .^ nspecial)
+    ARMAModel(bases, amplitudes, covariance[1:nspecial])
 end
