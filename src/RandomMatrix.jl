@@ -24,7 +24,12 @@ function find_range_randomly(A::Matrix, num_lhs::Integer, q=1)
 end
 
 
-"Compute a randomized SVD, from Halko Martinsson & Tropp Algorithm 5.1."
+"Compute a randomized SVD of `A` as *approximately* the matrix `U*W*V'` with rank=`num_lhs`,
+where W is diagonal. Returns `(U, diag(W), V)` (note *not* the transpose of V).
+U and V will have only `num_lhs` columns, and similarly `diag(W)` will be of
+length `num_lhs`.
+
+Based on Halko Martinsson & Tropp Algorithm 5.1."
 
 function find_svd_randomly(A::Matrix, num_lhs::Integer, q=2)
     Q = find_range_randomly(A, num_lhs, q)
