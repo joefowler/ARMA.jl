@@ -70,27 +70,50 @@ function estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)
     result ./ (chunks_consumed * collect(chunklength:-1:chunklength+1-nsamp))
 end
 
+"""Find the `nexp` "main exponentials" in the time stream `data`.
+
+Specifically, follow the prescription of XXX & YYY in "blah" *J. Statistics* (1995),
+building a matrix H whose columns are contiguous segments of the time stream.
+Perform a singular value decomposition to find the rank-`nexp` decomposition of H,
+from which we can construct the square matrix A (of size `nexp`) which is known
+to be similar to the "system matrix" (i.e., a time-step-advance matrix). The
+latter has eigenvalues equal to the exponentials comprising the time stream, so
+A (by similarity) has the same eigenvalues.
+
+That's the best explanation I have. It might be more honest to say that we
+find the exponentials by magic.
+
+Note that the current implementation does not construct the exact SVD of H,
+but rather uses a randomized matrix technique to compute an *approximate* SVD
+very efficiently, containing only a specified number of leading singular vectors.
+
+TODO: we need a better heuristic for constructing H out of a sufficient number
+of segments from the data, without allowing it to get insanely large when `data`
+is very, very long.
+"""
 
 function main_exponentials(data::Vector, nexp::Int)
     N = length(data)
     ncol = 10 + 2*nexp
-    h = zeros(Float64, N+1-ncol, ncol)
+    H = zeros(Float64, N+1-ncol, ncol)
     for c=1:ncol
-        h[:,c] = data[c:c+N-ncol]
+        H[:,c] = data[c:c+N-ncol]
     end
-    U,s,V = find_svd_randomly(h[1:end-1,:], nexp)
+    U,s,V = find_svd_randomly(H[1:end-1,:], nexp)
     W = diagm(1.0 ./ sqrt(s))
-    A = W*U'*h[2:end,:]*V*W
-    @show s, W, A
+    A = W*U'*H[2:end,:]*V*W
     eigvals(A)
 end
 
 
+"Fit the time series `data` as a sum of `nexp` possibly complex exponentials.
+Use `main_exponentials` to determine the exponential bases, then perform a
+simple least-squares fit to determine the amplitudes."
+
 function fit_exponentials(data::Vector, nexp::Int)
     bases = main_exponentials(data, nexp)
-    # TODO: Fit for their amplitudes
     N = length(data)
-    M = Array{Float64}(N, nexp)
+    M = Array{eltype(bases)}(N, nexp)
     for i=1:nexp
         M[:,i] = bases[i] .^ (0:N-1)
     end
@@ -103,4 +126,14 @@ function fitARMA(covariance::Vector, p::Int, q::Int)
     bases, amplitudes = fit_exponentials(covariance[1+nspecial:end], p)
     amplitudes ./= (bases .^ nspecial)
     ARMAModel(bases, amplitudes, covariance[1:nspecial])
+end
+
+# Absent further information, we find that q=p is a good choice most of the time,
+# so let that be a default:
+fitARMA(covariance::Vector, p::Int) = fitARMA(covariance, p, p)
+
+# Now if the user has no idea what model order to use, that's a much more
+# complicated story.
+function fitARMA(covariance::Vector)
+    error("We don't have a plan yet for fitting ARMA models without a given order.")
 end

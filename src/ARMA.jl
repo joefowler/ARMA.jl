@@ -5,6 +5,7 @@ using Polynomials, NLsolve
 export
     estimate_covariance,
     fitARMA,
+    fit_exponentials,
     ARMAModel,
     generate_noise,
     model_covariance,
