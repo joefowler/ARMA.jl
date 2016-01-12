@@ -211,7 +211,7 @@ for model in "ABCDEFGHIJKL"
 
     m3 = ARMAModel(expbases, expampls, covarIV)
 
-    # Check that model orders are equivalent
+    # A) Check that model orders are equivalent
     # Take care with model m3, b/c it never sets q<p-1 when constructing.
     @test p == m1.p
     @test p == m2.p
@@ -220,23 +220,23 @@ for model in "ABCDEFGHIJKL"
     @test q == m2.q
     @test max(q, p-1) == m3.q
 
-    # Check that model covariance matches
-    c1 = model_covariance(m1, 15)
-    c2 = model_covariance(m2, 15)
-    c3 = model_covariance(m3, 15)
+    # B) Check that model covariance matches
+    c1 = model_covariance(m1, 100)
+    c2 = model_covariance(m2, 100)
+    c3 = model_covariance(m3, 100)
     c0 = c1[1]
     @test all(abs(c1-c2) .< EPSILON*c0)
     @test all(abs(c1-c3) .< EPSILON*c0)
 
-    # Check that the initial covariances match
-    # While this should be redundany with above test, let's just be sure
+    # C) Check that the initial covariances match
+    # While this should be redundant with above test, let's just be sure
     NIV = max(0,q-p+1)
     if NIV>0
         @test all(abs(m1.covarIV[1:NIV].-m2.covarIV[1:NIV]) .< EPSILON*c0)
         @test all(abs(m1.covarIV[1:NIV].-m3.covarIV[1:NIV]) .< EPSILON*c0)
     end
 
-    # Check that the model rational function representation matches.
+    # D) Check that the model rational function representation matches.
     if m1.q > 0
         maxcoef = maximum(abs(m1.thetacoef))
         @test all(abs(m1.thetacoef.-m2.thetacoef) .< EPSILON*maxcoef)
@@ -248,6 +248,28 @@ for model in "ABCDEFGHIJKL"
     maxcoef = maximum(abs(m1.phicoef))
     @test all(abs(m1.phicoef.-m2.phicoef) .< EPSILON*maxcoef)
     @test all(abs(m1.phicoef.-m3.phicoef) .< EPSILON*maxcoef)
+
+    # E) Test model_psd. This isn't easy to see how to test, other than re-implement
+    # the model_psd code itself!
+    N = 50
+    freq = collect(linspace(0, 0.5, N))
+    z = exp(-2im*pi *freq)
+    numer = m1.thetacoef[1] + zeros(Complex128, N)
+    for i=1:m1.q
+        numer += m1.thetacoef[i+1] * (z.^i)
+    end
+    denom = m1.phicoef[1] + zeros(Complex128, N)
+    for i=1:m1.p
+        denom += m1.phicoef[i+1] * (z.^i)
+    end
+    psd = abs2(numer ./ denom)
+    @test all(abs2(psd - model_psd(m1, N)) .< 1e-6)
+    @test all(abs2(psd - model_psd(m2, N)) .< 1e-6)
+    @test all(abs2(psd - model_psd(m3, N)) .< 1e-5)
+    @test all(abs2(psd - model_psd(m1, freq)) .< 1e-6)
+    @test all(abs2(psd - model_psd(m2, freq)) .< 1e-6)
+    @test all(abs2(psd - model_psd(m3, freq)) .< 1e-5)
+
 end
 
 
@@ -295,7 +317,7 @@ test_sum_exp(bases, ampls, 1000)
 r=[3,-3]
 poles = [1.25,-2]
 model = ARMAModel(r, poles, 10.0)
-N = 10
+N = 50
 Phi = zeros(Float64, N, N)
 for i=1:model.p+1
     for col=1:N+1-i

@@ -297,7 +297,16 @@ function generate_noise(m::ARMAModel, N::Int)
 end
 
 
-"The ARMA model's model covariance function, from lags 0 to N-1"
+"The ARMA model's model covariance function. Methods:
+
+1. `model_covariance(m::ARMAModel, N::Int)`
+2. `model_covariance(covarIV::Vector, phicoef::Vector, N::Int)`
+
+The first returns covariance of model `m` from lags 0 to N-1. The second
+returns the covariance given the initial exceptional values of covariance `covarIV` and
+the coefficients `phicoef` of the Phi polynomial. (From these coefficients, a recusion
+allows computation of covariance beyond the initial values.)
+"
 function model_covariance(covarIV::Vector, phicoef::Vector, N::Int)
     covar = zeros(Float64, N)
     covar[1:length(covarIV)] = covarIV[1:end]
@@ -312,11 +321,15 @@ end
 model_covariance(m::ARMAModel, N::Int) = model_covariance(m.covarIV, m.phicoef, N)
 
 
-"The ARMA model's power spectral density function"
-function model_psd(m::ARMAModel, N::Int)
-    freq = collect(linspace(0,0.5,N))
-    model_psd(m, freq)
-end
+"The ARMA model's power spectral density function. Methods:
+
+1. `model_psd(m::ARMAModel, freq::Vector)`
+1. `model_psd(m::ARMAModel, N::Int)`
+
+The first returns PSD at the given frequencies `freq` (frequency 0.5 is the critical,
+or Nyquist, frequency). The second returns PSD at `N` equally-spaced frequencies
+from 0 to 0.5.
+"
 
 function model_psd(m::ARMAModel, freq::Vector)
     z = exp(-2im*pi *freq)
@@ -330,6 +343,9 @@ function model_psd(m::ARMAModel, freq::Vector)
     end
     abs2(numer ./ denom)
 end
+
+model_psd(m::ARMAModel, N::Int) = model_psd(m, collect(linspace(0, 0.5, N)))
+
 
 "Approximately whiten the timestream using a Toeplitz matrix (so
 that a zero-padded delay of the input timestream is equivalent to a
