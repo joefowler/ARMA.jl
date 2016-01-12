@@ -10,7 +10,8 @@ export
     generate_noise,
     model_covariance,
     model_psd,
-    toeplitz_whiten
+    toeplitz_whiten,
+    toeplitz_whiten!
 
 # ARMA.jl includes the basic ARMA models and their use
 # model_selection.jl includes tools for choosing a model (p,q) order

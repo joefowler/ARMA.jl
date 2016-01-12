@@ -290,3 +290,30 @@ test_sum_exp(bases, ampls, 1000)
 bases=[.999, .99, .95, .9, .7]
 ampls=[1,2,3,4,5]
 test_sum_exp(bases, ampls, 1000)
+
+# 6) Test toeplitz_whiten and toeplitz_whiten! with an ARMA(2,2) and 5 random vectors
+r=[3,-3]
+poles = [1.25,-2]
+model = ARMAModel(r, poles, 10.0)
+N = 10
+Phi = zeros(Float64, N, N)
+for i=1:model.p+1
+    for col=1:N+1-i
+        Phi[col+i-1,col] = model.phicoef[i]
+    end
+end
+The = zeros(Float64, N, N)
+for i=1:model.q+1
+    for col=1:N+1-i
+        The[col+i-1,col] = model.thetacoef[i]
+    end
+end
+for i=1:5
+    v = randn(N)
+    correct_tw = The \ (Phi * v)
+    tw = toeplitz_whiten(model, v)
+    @test all(abs(tw - correct_tw) .< 1e-6)
+    # Whiten in place
+    toeplitz_whiten!(model, v)
+    @test all(abs(v - correct_tw) .< 1e-6)
+end
