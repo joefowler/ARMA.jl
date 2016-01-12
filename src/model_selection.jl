@@ -1,5 +1,8 @@
-include("RandomMatrix.jl")
+#
+# Functions to find the appropriate ARMA model from data.
+#
 
+include("RandomMatrix.jl")
 
 function padded_length(N::Integer)
     powerof2 = round(Int, 2^ceil(log2(N)))

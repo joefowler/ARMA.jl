@@ -259,13 +259,12 @@ function ARMAModel(bases::Vector, amplitudes::Vector, covarIV::Vector)
 
     # Replace thetacoef, in case any roots moved
     thetacoef = polynomial_from_roots(roots_)
-    thetacoef *= sign(thetacoef[1])
 
     # One last problem is that theta polynomial is normalized, with theta[end]=1,
     # which we don't want. Our approach is just to see what the normalized theta
     # would give for gamma[1] and rescale.
     gammanorm,_,_ = _covar_repr(thetacoef,phicoef)
-    thetacoef *= sqrt(gamma[1]/gammanorm[1])
+    thetacoef *= sqrt(gamma[1]/gammanorm[1]) *  sign(thetacoef[1])
 
     ARMAModel(p,q,roots_,poles,thetacoef,phicoef,gamma[1:max(p,q+1)],bases,amplitudes)
 end

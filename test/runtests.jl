@@ -1,7 +1,7 @@
 using ARMA, Polynomials
 using Base.Test
 
-# padded_length: rounds up to convenient size for FFT
+# 1) Test padded_length: rounds up to convenient size for FFT
 
 @test ARMA.padded_length(1000) == 1024
 @test ARMA.padded_length(16) == 16
@@ -15,7 +15,7 @@ for i=1:10
     @test ARMA.padded_length(j) >= j
 end
 
-# estimate_covariance
+# 2) Test estimate_covariance
 
 @test estimate_covariance([0,2,0,-2]) == [2.0, 0.0, -2.0, 0.0]
 u = randn(2+2^13)
@@ -30,6 +30,8 @@ end
 
 @test estimate_covariance(u, 10) == estimate_covariance(u, 10, div(length(u), div(length(u)-1+150,150)))
 @test length(estimate_covariance(u)) == length(u)
+
+# 3) Basic tests of ARMAModel constructors
 
 function similar_list(a::Vector, b::Vector, eps)
     @assert length(a) == length(b)
@@ -46,7 +48,6 @@ function similar_list(a::Vector, b::Vector, eps)
     true
 end
 
-# Basic tests of ARMAModel constructors
 p,q = 3,3
 rs = 1+(randn(q) .^ 2)
 ps = 1+(randn(p) .^ 2)
@@ -85,8 +86,8 @@ function toeplitz(c::Vector, r::Vector)
     t
 end
 
-# Now complete tests of several models that have been worked out carefully on paper,
-# as well as several that are randomly created.
+# 4) Now complete tests of several models that have been worked out carefully
+# on paper, as well as several that are randomly created.
 
 # Generate 6 models of fixed parameters and order (2,0), (0,2), (1,1), (1,2), (2,1), (2,2)
 thetas=Dict('A'=>[2], 'B'=>[2,2.6,.8], 'C'=>[2,1.6], 'D'=>[2,2.6,.8], 'E'=>[2,1.6], 'F'=>[2,2.6,.8])
@@ -143,7 +144,7 @@ for model in "ABCDEFGHIJKL"
     @assert phcoef[1] == 1.0
     const p = length(phcoef)-1
     const q = length(thcoef)-1
-    println("Working on model $model of order ARMA($p,$q).")
+    # println("Testing model $model of order ARMA($p,$q).")
 
     m1 = ARMAModel(thcoef, phcoef)
 
@@ -247,6 +248,32 @@ for model in "ABCDEFGHIJKL"
     maxcoef = maximum(abs(m1.phicoef))
     @test all(abs(m1.phicoef.-m2.phicoef) .< EPSILON*maxcoef)
     @test all(abs(m1.phicoef.-m3.phicoef) .< EPSILON*maxcoef)
-
-    println()
 end
+
+
+# 5) Test fitting data to a sum-of-exponentials representation
+function test_sum_exp(bases::Vector, ampls::Vector, N::Integer)
+    signal=zeros(Float64, N)
+    for (b,a) in zip(bases,ampls)
+        signal += real(a*(b.^(0:N-1)))
+    end
+    bfit,afit = fit_exponentials(signal, length(bases))
+    # Rather than testing the fit, test the model that it generates.
+    model=zeros(Float64, N)
+    for (b,a) in zip(bfit,afit)
+        model += real(a*(b.^(0:N-1)))
+    end
+    @test all(abs(model-signal) .< 1e-6)
+end
+
+bases=[.999,.98,.7+.1im,.7-.1im]
+ampls=[5.0,4,3-1im,3+1im]
+test_sum_exp(bases, ampls, 1000)
+
+bases=[.99,.9,.1+.8im,.1-.8im]
+ampls=[7.0,5,3-1im,3+1im]
+test_sum_exp(bases, ampls, 1000)
+
+bases=[.999, .99, .95, .9, .7]
+ampls=[1,2,3,4,5]
+test_sum_exp(bases, ampls, 1000)
