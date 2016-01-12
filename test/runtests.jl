@@ -252,18 +252,31 @@ end
 
 
 # 5) Test fitting data to a sum-of-exponentials representation
+# and an ARMA model of order (p, q=p)
 function test_sum_exp(bases::Vector, ampls::Vector, N::Integer)
     signal=zeros(Float64, N)
     for (b,a) in zip(bases,ampls)
         signal += real(a*(b.^(0:N-1)))
     end
     bfit,afit = fit_exponentials(signal, length(bases))
+
     # Rather than testing the fit, test the model that it generates.
-    model=zeros(Float64, N)
+    cmodel=zeros(Float64, N)
     for (b,a) in zip(bfit,afit)
-        model += real(a*(b.^(0:N-1)))
+        cmodel += real(a*(b.^(0:N-1)))
     end
-    @test all(abs(model-signal) .< 1e-6)
+    @test all(abs(cmodel-signal) .< 1e-6)
+
+    # Now test the full fitARMA function, with 0 and then 1 exceptional value.
+    p = length(bases)
+    model = fitARMA(signal, p, p-1)
+    cmodel = model_covariance(model, N)
+    @test all(abs(cmodel-signal) .< 1e-6)
+
+    signal[1] *= 2
+    model = fitARMA(signal, p)
+    cmodel = model_covariance(model, N)
+    @test all(abs(cmodel-signal) .< 1e-6)
 end
 
 bases=[.999,.98,.7+.1im,.7-.1im]
