@@ -208,9 +208,9 @@ end
 # and q=p-1+length(covarIV).
 
 function ARMAModel(bases::Vector, amplitudes::Vector, covarIV::Vector)
-    p = length(bases)
+    const p = length(bases)
     @assert p == length(amplitudes)
-    q = p-1+length(covarIV)
+    const q = p-1+length(covarIV)
 
     # Find the covariance from lags 0 to p+q. Call it gamma
     gamma = zeros(Float64, 1+p+q)
