@@ -395,4 +395,31 @@ function toeplitz_whiten!(m::ARMAModel, timestream::Vector)
     timestream[1:end] = toeplitz_whiten(m, timestream)
 end
 
+
+
+
+function toeplitz(c::Vector)
+    N = length(c)
+    t = Array{eltype(c)}(N,N)
+    for i=1:N
+        for j=1:i
+            t[i,j] = t[j,i] = c[1+i-j]
+        end
+    end
+    t
+end
+
+function toeplitz(c::Vector, r::Vector)
+    M,N = length(c), length(r)
+    t = Array{eltype(c)}(M,N)
+    for i=1:M
+        for j=1:i
+            t[i,j] = c[1+i-j]
+        end
+        for j=i+1:N
+            t[i,j] = r[1+j-i]
+        end
+    end
+    t
+end
 end # module
