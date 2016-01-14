@@ -61,31 +61,6 @@ n = ARMAModel(m.thetacoef, m.phicoef)
 @test similar_list(m.roots_, n.roots_, 1e-7)
 @test similar_list(m.poles, n.poles, 1e-7)
 
-function toeplitz(c::Vector)
-    N = length(c)
-    t = Array{eltype(c)}(N,N)
-    for i=1:N
-        for j=1:i
-            t[i,j] = t[j,i] = c[1+i-j]
-        end
-    end
-    t
-end
-
-function toeplitz(c::Vector, r::Vector)
-    M,N = length(c), length(r)
-    t = Array{eltype(c)}(M,N)
-    for i=1:M
-        for j=1:i
-            t[i,j] = c[1+i-j]
-        end
-        for j=i+1:N
-            t[i,j] = r[1+j-i]
-        end
-    end
-    t
-end
-
 # 4) Now complete tests of several models that have been worked out carefully
 # on paper, as well as several that are randomly created.
 
@@ -346,4 +321,56 @@ for i=1:5
     # Whiten in place
     toeplitz_whiten!(model, v)
     @test all(abs(v - correct_tw) .< 1e-6)
+end
+
+# 7) Test whiten, unwhiten, solve_covariance, mult_covariance
+model25 = ARMAModel([3,1.5,1.2,1.1,1.02], [1.25, -2], 10)
+model52 = ARMAModel([1.25,-2], [3,1.5,1.2,1.1,1.02], 10)
+N = 100
+for model in (model25, model52)
+    gamma = model_covariance(model, N)
+    R = ARMA.toeplitz(gamma, gamma)
+    L = Matrix(chol(R, Val{:L}))
+    for i=1:5
+        v = randn(N)
+        # @test L*v == whiten(model, v)
+        # @test L\v == unwhiten(model, v)
+        # @test R*v == mult_covariance(model, v)
+        # @test R\v == solve_covariance(model, v)
+        # @test R*inverse_covariance(model) == eye(N)
+    end
+end
+
+arrays_similar(v::Array, w::Array, eps=1e-10) = all(abs(v-w) .< eps)
+
+
+# 8) Test internals used by whiten, unwhiten, solve_covariance, mult_covariance
+for i=1:5
+    N = 50
+    v = randn(N)
+    vx = copy(v)
+    vx[2:end] += 0.8*v[1:end-1]
+    vy = copy(v)
+    vy[2:end] -= 0.3*v[1:end-1]
+    vy[3:end] -= 0.4*v[1:end-2]
+
+    @test arrays_similar( ARMA.convolve_same(v, [1, 0.8]), vx)
+    @test arrays_similar( ARMA.deconvolve_same(vx, [1, 0.8]), v)
+    @test arrays_similar( ARMA.convolve_same(v, [1, -.3, -.4]), vy)
+    @test arrays_similar( ARMA.deconvolve_same(vy, [1, -.3, -.4]), v)
+end
+
+for j=1:5
+    N, Nb = 30, 4
+    B = ARMA.BandedLTMatrix(randn(N,Nb))
+    B.m[:,end] += 2  # Make B diagonally dominant
+    M = zeros(Float64, N, N)
+    for i=1:Nb
+        M += diagm(B.m[i:end, end+1-i],  1-i)
+    end
+    for i=1:5
+        v = randn(N)
+        @test arrays_similar(M*v, B*v)
+        @test arrays_similar(M\v, B\v)#, 1e-16*1.5^N)
+    end
 end

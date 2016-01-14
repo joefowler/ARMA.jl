@@ -18,6 +18,7 @@ export
 #   and for fitting the best model of that order.
 
 include("model_selection.jl")
+include("exact_operations.jl")
 
 
 "An Autoregressive Moving-Average model of order (p,q).
