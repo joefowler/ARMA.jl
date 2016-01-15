@@ -109,6 +109,8 @@ function \(B::BandedLTMatrix, v::Vector)
     x
 end
 
+*(B::BandedLTMatrix, M::Matrix) = hcat([B*M[:,i] for i=1:size(M)[2]]...)
+\(B::BandedLTMatrix, M::Matrix) = hcat([B\M[:,i] for i=1:size(M)[2]]...)
 
 type ARMASolver
     p         ::Int
