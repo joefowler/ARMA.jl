@@ -10,6 +10,9 @@ export
     generate_noise,
     model_covariance,
     model_psd,
+    ARMASolver,
+    whiten,
+    unwhiten,
     toeplitz_whiten,
     toeplitz_whiten!
 
@@ -18,7 +21,6 @@ export
 #   and for fitting the best model of that order.
 
 include("model_selection.jl")
-include("exact_operations.jl")
 
 
 "An Autoregressive Moving-Average model of order (p,q).
@@ -253,6 +255,7 @@ function ARMAModel(bases::Vector, amplitudes::Vector, covarIV::Vector)
 
     # Now a clever trick: any roots r of the MA polynomial that are INSIDE
     # the unit circle can be replaced by 1/r and yield the same covariance.
+    @assert q == length(roots_)
     for i=1:q
         if abs2(roots_[i]) < 1
             roots_[i] = 1.0/roots_[i]
@@ -309,8 +312,12 @@ the coefficients `phicoef` of the Phi polynomial. (From these coefficients, a re
 allows computation of covariance beyond the initial values.)
 "
 function model_covariance(covarIV::Vector, phicoef::Vector, N::Int)
+    if N < length(covarIV)
+        return covarIV[1:N]
+    end
     covar = zeros(Float64, N)
     covar[1:length(covarIV)] = covarIV[1:end]
+
     @assert phicoef[1] == 1.0
     for i = length(covarIV)+1:N
         for j = 1:length(phicoef)-1
@@ -422,4 +429,6 @@ function toeplitz(c::Vector, r::Vector)
     end
     t
 end
+include("exact_operations.jl")
+
 end # module
