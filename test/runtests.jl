@@ -258,6 +258,7 @@ end
 
 # 5) Test fitting data to a sum-of-exponentials representation
 # and an ARMA model of order (p, q=p)
+N = 50
 function test_sum_exp(bases::Vector, ampls::Vector, N::Integer)
     signal=zeros(Float64, N)
     for (b,a) in zip(bases,ampls)
@@ -324,24 +325,41 @@ for i=1:5
 end
 
 # 7) Test whiten, unwhiten, solve_covariance, mult_covariance
-model25 = ARMAModel([3,1.5,1.2,1.1,1.02], [1.25, -2], 10)
-model52 = ARMAModel([1.25,-2], [3,1.5,1.2,1.1,1.02], 10)
-N = 100
-for model in (model25, model52)
+arrays_similar(v::Array, w::Array, eps=1e-10) = all(abs(v-w) .< eps)
+
+model23 = ARMAModel([1.2,1.1,1.02], [1.25, -2], 10)
+model32 = ARMAModel([1.25,-2], [1.2,1.1,1.02], 10)
+model52 = ARMAModel([1.25,-2], [6,2.5,1.2,1.1,1.02], 10)
+model25 = ARMAModel([6,2.5,1.2,1.1,1.02], [1.25, -2], 10)
+N = 10
+for model in (model23, model32, model52, model25)
+    solver = ARMASolver(model, N)
     gamma = model_covariance(model, N)
     R = ARMA.toeplitz(gamma, gamma)
     L = Matrix(chol(R, Val{:L}))
+    x = zeros(Float64, N)
+    y = zeros(Float64, N)
+    x[1:model.p+1] = model.phicoef
+    y[1] = x[1]
+    Phi = ARMA.toeplitz(x, y)
+    RR = Phi*R*Phi'
+    LL = Matrix(chol(RR, Val{:L}))
+    # @show RR
+    # @show RR-LL*LL'
+    # @show LL
+    # @show solver.LL, typeof(solver.LL)
     for i=1:5
         v = randn(N)
-        # @test L*v == whiten(model, v)
-        # @test L\v == unwhiten(model, v)
-        # @test R*v == mult_covariance(model, v)
-        # @test R\v == solve_covariance(model, v)
-        # @test R*inverse_covariance(model) == eye(N)
+        @test arrays_similar(LL\v, solver.LL\v, 1e-6)
+        @test arrays_similar(LL*v, solver.LL*v, 1e-6)
+        @test arrays_similar(L\v, whiten(solver, v), 1e-6)
+        @test arrays_similar(L*v, unwhiten(solver, v), 1e-6)
+        # @test R*v == mult_covariance(solver, v)
+        # @test R\v == solve_covariance(solver, v)
+        # @test R*inverse_covariance(solver) == eye(N)
     end
 end
 
-arrays_similar(v::Array, w::Array, eps=1e-10) = all(abs(v-w) .< eps)
 
 
 # 8) Test internals used by whiten, unwhiten, solve_covariance, mult_covariance

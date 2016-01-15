@@ -136,7 +136,7 @@ end
 
 
 function ARMASolver(m::ARMAModel, N::Integer)
-    covar = model_covariance(m, max(m.p, m.q+1))
+    covar = model_covariance(m, max(m.p+1, m.q+1))
     R_corner  = toeplitz(covar, covar)
     Nc = length(covar)
     x = zeros(Float64, Nc)
@@ -173,5 +173,6 @@ function whiten(solver::ARMASolver, v::Vector)
 end
 
 function unwhiten(solver::ARMASolver, v::Vector)
-    v
+    x = solver.LL * v
+    deconvolve_same(x, solver.phicoef)
 end
