@@ -291,3 +291,9 @@ function solve_covariance(solver::ARMASolver, v::Vector)
     end
     reverse(convolve_same(reverse(v2), solver.phicoef))
 end
+
+
+function inverse_covariance(solver::ARMASolver, N::Integer)
+    M = eye(N)
+    hcat([solve_covariance(solver, M[:,i]) for i=1:N]...)
+end

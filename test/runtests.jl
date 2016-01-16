@@ -395,15 +395,17 @@ function test8()
         # @show RR-LL*LL'
         # @show LL
         # @show solver.LL
-        for J in [2,4,6,8,10,13,16]
-            v = randn(J)
-            @test arrays_similar(LL[1:J,1:J]\v, solver.LL[1:J,1:J]\v, 1e-7)
-            @test arrays_similar(LL[1:J,1:J]*v, solver.LL[1:J,1:J]*v, 1e-7)
-            @test arrays_similar(L[1:J,1:J]\v, whiten(solver, v), 1e-7)
-            @test arrays_similar(L[1:J,1:J]*v, unwhiten(solver, v), 1e-7)
-            @test arrays_similar(R[1:J,1:J]*v, mult_covariance(solver, v), 1e-7)
-            @test arrays_similar(R[1:J,1:J]\v, solve_covariance(solver, v), 1e-4)
-            # @test R*inverse_covariance(solver) == eye(N)
+        for N in [2,4,6,8,10,13,16]
+            v = randn(N)
+            @test arrays_similar(LL[1:N,1:N]\v, solver.LL[1:N,1:N]\v, 1e-7)
+            @test arrays_similar(LL[1:N,1:N]*v, solver.LL[1:N,1:N]*v, 1e-7)
+            @test arrays_similar(L[1:N,1:N]\v, whiten(solver, v), 1e-7)
+            @test arrays_similar(L[1:N,1:N]*v, unwhiten(solver, v), 1e-7)
+            @test arrays_similar(R[1:N,1:N]*v, mult_covariance(solver, v), 1e-7)
+            @test arrays_similar(R[1:N,1:N]\v, solve_covariance(solver, v), 1e-4)
+            Rinv = inverse_covariance(solver, N)
+            @test arrays_similar(R[1:N,1:N]*Rinv, eye(N), 1e-7)
+            @test arrays_similar(Rinv*R[1:N,1:N], eye(N), 1e-7)
         end
     end
 end
