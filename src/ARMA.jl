@@ -13,6 +13,9 @@ export
     ARMASolver,
     whiten,
     unwhiten,
+    mult_covariance,
+    solve_covariance,
+    invert_covariance,
     toeplitz_whiten,
     toeplitz_whiten!
 
