@@ -85,7 +85,7 @@ size(B::BandedLTMatrix) = [B.nrows, B.nrows]
 
 function *(B::BandedLTMatrix, v::Vector)
     if B.nrows != length(v)
-        throw(DimensionMismatch("second dimension of B, $(B.nrows), does not match length of v, $(length(v))"))
+        throw(DimensionMismatch("Second dimension of B, $(B.nrows), does not match length of v, $(length(v))"))
     end
     x = B.m[:,end] .* v
     for i=2:B.nbands
@@ -96,7 +96,7 @@ end
 
 function \(B::BandedLTMatrix, v::Vector)
     if B.nrows != length(v)
-        throw(DimensionMismatch("second dimension of B, $(B.nrows), does not match length of v, $(length(v))"))
+        throw(DimensionMismatch("Second dimension of B, $(B.nrows), does not match length of v, $(length(v))"))
     end
     x = similar(v)
     x[1] = v[1] / B[1,1]
@@ -108,6 +108,24 @@ function \(B::BandedLTMatrix, v::Vector)
     end
     x
 end
+
+function transpose_solve(B::BandedLTMatrix, v::Vector)
+    if B.nrows != length(v)
+        throw(DimensionMismatch("First dimension of B, $(B.nrows), does not match length of v, $(length(v))"))
+    end
+    x = similar(v)
+    Nv = length(v)
+    x[Nv] = v[Nv] / B[Nv,Nv]
+    for i = Nv-1:-1:Nv-B.nbands+1
+        x[i] = (v[i] - dot(vec(B[i+1:end,i]), x[i+1:end]))/B[i,i]
+    end
+    for i = Nv-B.nbands:-1:1
+        x[i] = (v[i] - dot(vec(B[i+1:i+B.nbands,i]), x[i+1:i+B.nbands]))/B[i,i]
+    end
+    x
+end
+
+transpose_solve(M::Matrix, v::Vector) = M'\v
 
 *(B::BandedLTMatrix, M::Matrix) = hcat([B*M[:,i] for i=1:size(M)[2]]...)
 \(B::BandedLTMatrix, M::Matrix) = hcat([B\M[:,i] for i=1:size(M)[2]]...)
@@ -260,4 +278,16 @@ function mult_covariance(solver::ARMASolver, v::Vector)
         x = solver.RRu[1:Nv,1:Nv] * v1
     end
     deconvolve_same(x, solver.phicoef)
+end
+
+
+function solve_covariance(solver::ARMASolver, v::Vector)
+    const nv = length(v)
+    v1 = whiten(solver, v)
+    if nv  < solver.LL.nrows
+        v2 = solver.LL[1:nv,1:nv]' \ v1
+    else
+        v2 = transpose_solve(solver.LL, v1)
+    end
+    reverse(convolve_same(reverse(v2), solver.phicoef))
 end

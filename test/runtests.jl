@@ -332,50 +332,11 @@ function test6()
     end
 end
 
-# 7) Test whiten, unwhiten, solve_covariance, mult_covariance
 arrays_similar(v::Array, w::Array, eps=1e-10) = all(abs(v-w) .< eps)
 
+
+# 7) Test internals used by whiten, unwhiten, solve_covariance, mult_covariance
 function test7()
-    model23 = ARMAModel([1.2,1.1,1.02], [1.25, -2], 10)
-    model32 = ARMAModel([1.25,-2], [1.2,1.1,1.02], 10)
-    model52 = ARMAModel([1.25,-2], [6,2.5,1.2,1.1,1.02], 10)
-    model25 = ARMAModel([6,2.5,1.2,1.1,1.02], [1.25, -2], 10)
-    for model in (model23, model32, model25) # PRoblems with Model52, model52)
-        N = 16
-        gamma = model_covariance(model, N)
-        R = ARMA.toeplitz(gamma, gamma)
-        L = Matrix(chol(R, Val{:L}))
-        x = zeros(Float64, N)
-        y = zeros(Float64, N)
-        x[1:model.p+1] = model.phicoef
-        y[1] = x[1]
-        Phi = ARMA.toeplitz(x, y)
-        RR = Phi*R*Phi'
-        LL = Matrix(chol(RR, Val{:L}))
-
-        solver = ARMASolver(model, N)
-        # @show solver.RRu
-        # @show solver.RRt
-        # @show RR
-        # @show RR-LL*LL'
-        # @show LL
-        # @show solver.LL
-        for J in [2,4,6,8,10,13,16]
-            v = randn(J)
-            @test arrays_similar(LL[1:J,1:J]\v, solver.LL[1:J,1:J]\v, 1e-6)
-            @test arrays_similar(LL[1:J,1:J]*v, solver.LL[1:J,1:J]*v, 1e-6)
-            @test arrays_similar(L[1:J,1:J]\v, whiten(solver, v), 1e-6)
-            @test arrays_similar(L[1:J,1:J]*v, unwhiten(solver, v), 1e-6)
-            @test arrays_similar(R[1:J,1:J]*v, mult_covariance(solver, v), 1e-6)
-            # @test R\v == solve_covariance(solver, v)
-            # @test R*inverse_covariance(solver) == eye(N)
-        end
-    end
-end
-
-
-# 8) Test internals used by whiten, unwhiten, solve_covariance, mult_covariance
-function test8()
     for i=1:5
         N = 50
         v = randn(N)
@@ -402,7 +363,47 @@ function test8()
         for i=1:5
             v = randn(N)
             @test arrays_similar(M*v, B*v)
-            @test arrays_similar(M\v, B\v)#, 1e-16*1.5^N)
+            @test arrays_similar(M\v, B\v)
+            @test arrays_similar(M'\v, ARMA.transpose_solve(B, v))
+        end
+    end
+end
+
+# 8) Test whiten, unwhiten, solve_covariance, mult_covariance
+function test8()
+    model23 = ARMAModel([1.2,1.1,1.02], [1.25, -2], 10)
+    model32 = ARMAModel([1.25,-2], [1.2,1.1,1.02], 10)
+    model52 = ARMAModel([1.25,-2], [6,2.5,1.2,1.1,1.02], 10)
+    model25 = ARMAModel([6,2.5,1.2,1.1,1.02], [1.25, -2], 10)
+    for model in (model23, model32, model25) # PRoblems with Model52, model52)
+        N = 16
+        gamma = model_covariance(model, N)
+        R = ARMA.toeplitz(gamma, gamma)
+        L = Matrix(chol(R, Val{:L}))
+        x = zeros(Float64, N)
+        y = zeros(Float64, N)
+        x[1:model.p+1] = model.phicoef
+        y[1] = x[1]
+        Phi = ARMA.toeplitz(x, y)
+        RR = Phi*R*Phi'
+        LL = Matrix(chol(RR, Val{:L}))
+
+        solver = ARMASolver(model, N)
+        # @show solver.RRu
+        # @show solver.RRt
+        # @show RR
+        # @show RR-LL*LL'
+        # @show LL
+        # @show solver.LL
+        for J in [2,4,6,8,10,13,16]
+            v = randn(J)
+            @test arrays_similar(LL[1:J,1:J]\v, solver.LL[1:J,1:J]\v, 1e-7)
+            @test arrays_similar(LL[1:J,1:J]*v, solver.LL[1:J,1:J]*v, 1e-7)
+            @test arrays_similar(L[1:J,1:J]\v, whiten(solver, v), 1e-7)
+            @test arrays_similar(L[1:J,1:J]*v, unwhiten(solver, v), 1e-7)
+            @test arrays_similar(R[1:J,1:J]*v, mult_covariance(solver, v), 1e-7)
+            @test arrays_similar(R[1:J,1:J]\v, solve_covariance(solver, v), 1e-4)
+            # @test R*inverse_covariance(solver) == eye(N)
         end
     end
 end
