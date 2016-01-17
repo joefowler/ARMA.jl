@@ -180,11 +180,6 @@ function ARMASolver(m::ARMAModel, N::Integer)
     RR_toeplitz[1:m.q+1] = RR_corner[end, end-m.q:end]
     RR_toeplitz[m.q+1:end] = RR_corner[end, end:-1:end-m.q]
     RR_rectcorner = RR_corner[1:max(m.p,Nbands-1), :]
-    @show m.p, m.q, Nbands
-    # @show size(RR_corner)
-    # @show size(RR_rectcorner)
-    # @show size(RR_toeplitz)
-    # @show RR_toeplitz
 
     # Now compute LL such that LL*LL' == RR, without ever representing RR as a full
     # matrix in memory. Awesome.
@@ -196,12 +191,12 @@ function ARMASolver(m::ARMAModel, N::Integer)
         end
     end
     for r = Nc+1:N
-        const mincol = r-Nbands+1
+        const mincol = r-m.q
         LL[r,mincol] = RR_toeplitz[1] / LL[mincol,mincol]
         for c=mincol+1:r-1
             LL[r,c] = (RR_toeplitz[c-r+Nbands] - dot(vec(LL[r,mincol:c-1]), vec(LL[c,mincol:c-1]))) / LL[c,c]
         end
-        Rt = RR_toeplitz[Nbands]
+        Rt = RR_toeplitz[m.q+1]
         S = sum( LL[ r,mincol:r-1] .^ 2)
         LL[r,r] = sqrt(Rt - S)
     end

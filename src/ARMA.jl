@@ -15,7 +15,7 @@ export
     unwhiten,
     mult_covariance,
     solve_covariance,
-    invert_covariance,
+    inverse_covariance,
     toeplitz_whiten,
     toeplitz_whiten!
 
