@@ -57,11 +57,11 @@ function estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)
     paddedsize = padded_length(chunklength+nsamp)
     padded_data = zeros(Float64, paddedsize)
     result = zeros(Float64, nsamp)
-    datamean = mean(timeseries)
 
     i=0
     chunks_consumed = 0
     while i+chunklength <= N
+        datamean = mean(timeseries[i+1:i+chunklength])
         padded_data[1:chunklength] = timeseries[i+1:i+chunklength] - datamean
         chunks_consumed += 1
 
