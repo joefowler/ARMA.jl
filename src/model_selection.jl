@@ -18,18 +18,18 @@ function padded_length(N::Integer)
 end
 
 
-"""estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)
+"""`estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)`
 
-estimate_covariance takes a noise sequences (as a 1D vector
+`estimate_covariance` takes a noise sequences (as a 1D vector
 or as columns of a 2D matrix) and estimates the sample-sample covariance
 vector from these.
 
-nsamp and chunklength are both optional arguments.
+`nsamp` and `chunklength` are both optional arguments.
 
-nsamp is the number of samples to compute from the covariance. If not positive,
-then compute all possible values.
+`nsamp` is the number of samples to compute from the covariance. If not a positive
+number, then compute all possible values.
 
-chunklength is the amount of data to be considered at once. If zero, then this
+`chunklength` is the amount of data to be considered at once. If omitted, then this
 will be either the length of the timeseries or 15*nsamp, whichever is shorter.
 
 The idea is that a full computation is very inefficient. Making chunklength

@@ -4,9 +4,9 @@
 #
 
 "Convolve the vector `b` with `kernel`, yielding a vector of the same size
-as `b`, effectively padding it with zeros as needed. This is equivalent to
-multiplying `b` by the banded lower triangular Toeplitz matrix whose first
-row begins with `kernel`."
+as `b`, effectively padding the input with initial zeros as needed. This is
+equivalent to multiplying `b` by the banded lower triangular Toeplitz matrix
+whose first column begins with `kernel`."
 
 function convolve_same(b::Vector, kernel::Vector)
     x = kernel[1] * copy(b)
