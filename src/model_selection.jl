@@ -97,7 +97,7 @@ is very, very long.
 
 function main_exponentials(data::Vector, nexp::Int)
     N = length(data)
-    ncol = 20 + 2*nexp
+    ncol = 40 + 5*nexp
     H = zeros(Float64, N+1-ncol, ncol)
     for c=1:ncol
         H[:,c] = data[c:c+N-ncol]
