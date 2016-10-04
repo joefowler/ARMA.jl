@@ -1,6 +1,6 @@
 #
-# Functions to work with exact multiplication and solutions for R and its Cholesky
-# (lower) decomposition L
+# Functions to work with exact multiplication and solutions for R, for its Cholesky
+# (lower) decomposition L, and for L'.
 #
 
 "Convolve the vector `b` with `kernel`, yielding a vector of the same size
@@ -140,6 +140,7 @@ noise covariance matrix and `L` is its lower Cholesky factor):
 1. L*v  `unwhiten(solver, v)`
 1. R\\v  `solve_covariance(solver, v)`
 1. R*v  `mult_covariance(solver, v)`
+1. inv(R[1:N,1:N]) `inverse_covariance(solver, N)`
 "
 
 type ARMASolver
