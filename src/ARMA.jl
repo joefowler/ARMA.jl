@@ -406,6 +406,10 @@ function toeplitz_whiten!(m::ARMAModel, timestream::Vector)
 end
 
 
+function toeplitz_whiten(m::ARMAModel, M::Matrix)
+    tw(v::Vector) = toeplitz_whiten(m, v)
+    mapslices(tw, M, 1)
+end
 
 
 function toeplitz(c::Vector)

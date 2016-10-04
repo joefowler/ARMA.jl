@@ -219,6 +219,13 @@ function whiten(solver::ARMASolver, v::Vector)
     solver.LL \ Phiv
 end
 
+function whiten(solver::ARMASolver, M::Matrix)
+    ws(v::Vector) = whiten(solver, v)
+    mapslices(ws, M, 1)
+end
+
+
+
 
 """`unwhiten(solver::ARMASolver, w::Vector)`
 
@@ -236,6 +243,12 @@ function unwhiten(solver::ARMASolver, w::Vector)
     end
     deconvolve_same(x, solver.phicoef)
 end
+
+function unwhiten(solver::ARMASolver, M::Matrix)
+    uws(v::Vector) = unwhiten(solver, v)
+    mapslices(ws, M, 1)
+end
+
 
 """`mult_covariance(solver::ARMASolver, v::Vector)`
 
