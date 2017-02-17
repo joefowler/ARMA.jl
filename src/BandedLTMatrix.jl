@@ -99,7 +99,7 @@ function BandedLTMatrix{T <: Number}(m::AbstractMatrix{T}, nbands)
 end
 
 
-Base.linearindexing{T<:BandedLTMatrix}(::Type{T}) = Base.LinearFast()
+Base.linearindexing{T<:BandedLTMatrix}(::Type{T}) = Base.LinearSlow()
 
 import Base: getindex,setindex!,size,*, \
 

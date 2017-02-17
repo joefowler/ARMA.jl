@@ -342,8 +342,8 @@ or Nyquist, frequency). The second returns PSD at `N` equally-spaced frequencies
 from 0 to 0.5.
 "
 
-function model_psd(m::ARMAModel, freq::Vector)
-    z = exp(-2im*pi *freq)
+function model_psd(m::ARMAModel, freq::AbstractVector)
+    z = exp.(-2im*pi *freq)
     numer = m.thetacoef[1]
     for i=1:m.q
         numer += m.thetacoef[i+1] * (z.^i)
