@@ -168,7 +168,7 @@ It is assumed that the coefficients are real, so only the real part is kept.
 The sign of the constant term is taken to be positive.
 The highest-order term has coefficient +1 or -1."
 
-function polynomial_from_roots(r::Vector)
+function polynomial_from_roots(r::AbstractVector)
     pr = prod(r)
     @assert abs(imag(pr)/real(pr)) < 1e-10
     coef = real(poly(r).a)
@@ -178,7 +178,7 @@ end
 
 # Construct from roots-and-poles representation. We also need the gamma_0 value
 # (the process variance) to set the scale of the model, as roots-and-poles omits this.
-function ARMAModel(roots_::Vector, poles::Vector, variance)
+function ARMAModel(roots_::AbstractVector, poles::AbstractVector, variance)
     @assert all(abs2.(roots_) .> 1)
     @assert all(abs2.(poles) .> 1)
     # The product of the roots and the product of the poles needs to be real.
@@ -213,7 +213,7 @@ end
 # The model will have order ARMA(p,q) where p=length(bases)=length(amplitudes),
 # and q=p-1+length(covarIV).
 
-function ARMAModel(bases::Vector, amplitudes::Vector, covarIV::Vector)
+function ARMAModel(bases::AbstractVector, amplitudes::AbstractVector, covarIV::AbstractVector)
     const p = length(bases)
     @assert p == length(amplitudes)
     const q = p-1+length(covarIV)
@@ -314,7 +314,7 @@ returns the covariance given the initial exceptional values of covariance `covar
 the coefficients `phicoef` of the Phi polynomial. (From these coefficients, a recusion
 allows computation of covariance beyond the initial values.)
 "
-function model_covariance(covarIV::Vector, phicoef::Vector, N::Int)
+function model_covariance(covarIV::AbstractVector, phicoef::AbstractVector, N::Int)
     if N < length(covarIV)
         return covarIV[1:N]
     end
@@ -365,7 +365,7 @@ zero-padded delay of the output).
 No Toeplitz matrix has the ability to make the input exactly white,
 but for many purposes, the time-shift property is more valuable than
 that exact whitening."
-function toeplitz_whiten(m::ARMAModel, timestream::Vector)
+function toeplitz_whiten(m::ARMAModel, timestream::AbstractVector)
     N = length(timestream)
     white = zeros(Float64, N)
 
@@ -401,18 +401,18 @@ function toeplitz_whiten(m::ARMAModel, timestream::Vector)
     white
 end
 
-function toeplitz_whiten!(m::ARMAModel, timestream::Vector)
+function toeplitz_whiten!(m::ARMAModel, timestream::AbstractVector)
     timestream[1:end] = toeplitz_whiten(m, timestream)
 end
 
 
-function toeplitz_whiten(m::ARMAModel, M::Matrix)
-    tw(v::Vector) = toeplitz_whiten(m, v)
+function toeplitz_whiten(m::ARMAModel, M::AbstractMatrix)
+    tw(v::AbstractVector) = toeplitz_whiten(m, v)
     mapslices(tw, M, 1)
 end
 
 
-function toeplitz(c::Vector)
+function toeplitz(c::AbstractVector)
     N = length(c)
     t = Array{eltype(c)}(N,N)
     for i=1:N
@@ -423,7 +423,7 @@ function toeplitz(c::Vector)
     t
 end
 
-function toeplitz(c::Vector, r::Vector)
+function toeplitz(c::AbstractVector, r::AbstractVector)
     M,N = length(c), length(r)
     t = Array{eltype(c)}(M,N)
     for i=1:M

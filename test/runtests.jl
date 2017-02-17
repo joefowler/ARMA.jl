@@ -333,7 +333,7 @@ function test6()
     end
 end
 
-arrays_similar(v::Array, w::Array, eps=1e-10) = all(abs.(v-w) .< eps)
+arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .< eps)
 
 
 # 7) Test internals used by whiten, unwhiten, solve_covariance, mult_covariance

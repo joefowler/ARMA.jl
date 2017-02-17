@@ -11,7 +11,7 @@ with `q` power iterations. Returns range matrix Q of size (m,num_lhs).
 
 Based on Halko Martinsson & Tropp Algorithm 4.3."
 
-function find_range_randomly(A::Matrix, num_lhs::Integer, q=1)
+function find_range_randomly(A::AbstractMatrix, num_lhs::Integer, q=1)
     m,n = size(A)
     Omega = randn(n, num_lhs)
     Y = A*Omega
@@ -31,7 +31,7 @@ length `num_lhs`.
 
 Based on Halko Martinsson & Tropp Algorithm 5.1."
 
-function find_svd_randomly(A::Matrix, num_lhs::Integer, q=2)
+function find_svd_randomly(A::AbstractMatrix, num_lhs::Integer, q=2)
     Q = find_range_randomly(A, num_lhs, q)
     B = Q' * A
     u_b,w,v = svd(B)

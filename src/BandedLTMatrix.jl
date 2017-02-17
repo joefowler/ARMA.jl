@@ -56,7 +56,7 @@ type BandedLTMatrix{T <: Number} <: AbstractMatrix{T}
         new(nrows, nbands, m)
     end
 end
-BandedLTMatrix{T <: Number}(nrows::Int, nbands::Int, m::Matrix{T}) = BandedLTMatrix{T}(nrows, nbands, m)
+BandedLTMatrix{T <: Number}(nrows::Int, nbands::Int, m::AbstractMatrix{T}) = BandedLTMatrix{T}(nrows, nbands, m)
 
 # Construct by (Type, #rows, #bands)
 BandedLTMatrix(T::Type, nr, nb) = BandedLTMatrix{T}(nr, nb, zeros(T, nr, nb))

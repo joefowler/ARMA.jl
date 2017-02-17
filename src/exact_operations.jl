@@ -8,8 +8,8 @@ as `b`, effectively padding the input with initial zeros as needed. This is
 equivalent to multiplying `b` by the banded lower triangular Toeplitz matrix
 whose first column begins with `kernel`."
 
-function convolve_same(b::Vector, kernel::Vector)
-    x = kernel[1] * copy(b)
+function convolve_same(b::AbstractVector, kernel::AbstractVector)
+    x = kernel[1] * Array(b)
     for i=2:length(kernel)
         x[i:end] += kernel[i] * b[1:end+1-i]
     end
@@ -19,10 +19,10 @@ end
 "Reverse the effect of `convolve_same(b, kernel)`. That is, solve Kx=b for
 x where K is the banded lower triangular Toeplitz matrix whose first row
 begins with `kernel`."
-function deconvolve_same(b::Vector, kernel::Vector)
+function deconvolve_same(b::AbstractVector, kernel::AbstractVector)
     const Nk, N = length(kernel), length(b)
     lenrek = reverse(kernel[2:end])
-    x = copy(b) / kernel[1]
+    x = Array(b) / kernel[1]
     for i=2:min(Nk,N)
         x[i] = (x[i]-dot(kernel[i:-1:2], x[1:i-1])) / kernel[1]
     end
@@ -114,7 +114,7 @@ Use `solver` for an ARMA model to whiten the vector `v`. Here, "whiten" means
 return `w=L\\v`, where `L` is the lower Cholesky factor of the covariance matrix.
 The expected value of `w*w'` is the identity matrix."""
 
-function whiten(solver::ARMASolver, v::Vector)
+function whiten(solver::ARMASolver, v::AbstractVector)
     Phiv = convolve_same(v, solver.phicoef)
     const nv = length(v)
     if nv  < solver.LL.nrows
@@ -123,22 +123,22 @@ function whiten(solver::ARMASolver, v::Vector)
     solver.LL \ Phiv
 end
 
-function whiten(solver::ARMASolver, M::Matrix)
-    ws(v::Vector) = whiten(solver, v)
+function whiten(solver::ARMASolver, M::AbstractMatrix)
+    ws(v::AbstractVector) = whiten(solver, v)
     mapslices(ws, M, 1)
 end
 
 
 
 
-"""`unwhiten(solver::ARMASolver, w::Vector)`
+"""`unwhiten(solver::ARMASolver, w::AbstractVector)`
 
 Use `solver` for an ARMA model to unwhiten the vector `w`. Here, "unwhiten" means
 return `v=L*w`, where `L` is the lower Cholesky factor of the covariance matrix.
 If the expected value of `w*w'` is the identity matrix, then the expected
 value of `v*v'` is the data covariance matrix of the ARMA model."""
 
-function unwhiten(solver::ARMASolver, w::Vector)
+function unwhiten(solver::ARMASolver, w::AbstractVector)
     const nw = length(w)
     if nw  < solver.LL.nrows
         x = solver.LL[1:nw, 1:nw] * w
@@ -148,17 +148,17 @@ function unwhiten(solver::ARMASolver, w::Vector)
     deconvolve_same(x, solver.phicoef)
 end
 
-function unwhiten(solver::ARMASolver, M::Matrix)
-    uws(v::Vector) = unwhiten(solver, v)
+function unwhiten(solver::ARMASolver, M::AbstractMatrix)
+    uws(v::AbstractVector) = unwhiten(solver, v)
     mapslices(ws, M, 1)
 end
 
 
-"""`mult_covariance(solver::ARMASolver, v::Vector)`
+"""`mult_covariance(solver::ARMASolver, v::AbstractVector)`
 
 Use `solver` for an ARMA model to multiply the vector `v` by the covariance matrix."""
 
-function mult_covariance(solver::ARMASolver, v::Vector)
+function mult_covariance(solver::ARMASolver, v::AbstractVector)
     # Reversing before and after deconvolve ensures that we are solving Phi', not Phi.
     v1 = reverse(deconvolve_same(reverse(v), solver.phicoef))
 
@@ -193,7 +193,7 @@ function mult_covariance(solver::ARMASolver, v::Vector)
 end
 
 
-function solve_covariance(solver::ARMASolver, v::Vector)
+function solve_covariance(solver::ARMASolver, v::AbstractVector)
     const nv = length(v)
     v1 = whiten(solver, v)
     if nv  < solver.LL.nrows
