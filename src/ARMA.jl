@@ -436,6 +436,7 @@ function toeplitz(c::Vector, r::Vector)
     end
     t
 end
+include("BandedLTMatrix.jl")
 include("exact_operations.jl")
 
 end # module

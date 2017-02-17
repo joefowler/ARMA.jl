@@ -1,4 +1,5 @@
 using ARMA, Polynomials
+using ARMA.BandedLTMatrix
 using Base.Test
 
 # 1) Test padded_length: rounds up to convenient size for FFT
@@ -354,7 +355,7 @@ function test7()
 
     for j=1:5
         N, Nb = 30, 4
-        B = ARMA.BandedLTMatrix(randn(N,Nb))
+        B = ARMA.BandedLTMatrix(randn(N,N), Nb)
         B.m[:,end] += 2  # Make B diagonally dominant
         M = zeros(Float64, N, N)
         for i=1:Nb
@@ -404,6 +405,37 @@ function test8()
             @test arrays_similar(R[1:N,1:N]*Rinv, eye(N), 1e-7)
             @test arrays_similar(Rinv*R[1:N,1:N], eye(N), 1e-7)
         end
+    end
+end
+
+# 9) Test BandedLTMatrix
+S = 6
+b = BandedLTMatrix(Int, S, S-1)
+for i=1:S
+    for j=1:S
+        @test b[i,j] == 0
+    end
+end
+@test_throws ArgumentError b=BandedLTMatrix(Int, 3, 6)
+@test_throws ArgumentError b=BandedLTMatrix(eye(4), 0) # Caught in constructor
+@test_throws ErrorException b=BandedLTMatrix(eye(4), -3) # Errors before constructor
+
+for nbands = 1:6
+    bx = eye(6); bx[nbands,1] = 4
+    # Check that band-counting works
+    b = BandedLTMatrix(bx)
+    @test b.nbands == nbands
+
+    # Check that band-counting allows values < eps to count as zero
+    b = BandedLTMatrix(bx; eps=10)
+    @test b.nbands == 1
+
+    # Check that we can insist on a # of bands regardless of the input m.
+    forced_nb = 3
+    b = BandedLTMatrix(bx, forced_nb)
+    @test b.nbands == forced_nb
+    if nbands > forced_nb
+        @test b[nbands, 1] == 0
     end
 end
 
