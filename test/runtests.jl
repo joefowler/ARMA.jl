@@ -22,11 +22,11 @@ function test2()
     u = randn(2+2^13)
     r = u[3:end] + u[1:end-2] + 2*u[2:end-1]
     cv = estimate_covariance(r, 20)
-    @test abs(cv[1] - 6) < 1
-    @test abs(cv[2] - 4) < 1
-    @test abs(cv[3] - 1) < 1
+    @test abs.(cv[1] - 6) < 1
+    @test abs.(cv[2] - 4) < 1
+    @test abs.(cv[3] - 1) < 1
     for lag = 4:19
-        @test abs(cv[lag]) < 1
+        @test abs.(cv[lag]) < 1
     end
 
     @test estimate_covariance(u, 10) == estimate_covariance(u, 10, div(length(u), div(length(u)-1+150,150)))
@@ -38,12 +38,12 @@ end
 function similar_list(a::Vector, b::Vector, eps)
     @assert length(a) == length(b)
     for a1 in a
-        if all(abs2(b - a1) .> eps^2)
+        if all(abs2.(b - a1) .> eps^2)
             return false
         end
     end
     for b1 in b
-        if all(abs2(a - b1) .> eps^2)
+        if all(abs2.(a - b1) .> eps^2)
             return false
         end
     end
@@ -77,7 +77,7 @@ function test4()
     # And generate 6 models of random order and random parameters
     for model in "GHIJKL"
         # Order will be 0<=p,q <=6.
-        # Use rand^(-.3) for roots/poles. Negative power ensures abs(r)>1, and
+        # Use rand^(-.3) for roots/poles. Negative power ensures abs.(r)>1, and
         # the 0.3 power concentrates the values near the unit circle.
         p = rand(0:6)
         q = rand(0:6)
@@ -162,7 +162,7 @@ function test4()
         A = zeros(Float64, N, N)
         for i=1:N
             for j=1:N
-                col = 1+abs(j-i)
+                col = 1+abs.(j-i)
                 A[i,col] += phN[j]
             end
         end
@@ -212,35 +212,35 @@ function test4()
         c2 = model_covariance(m2, 100)
         c3 = model_covariance(m3, 100)
         c0 = c1[1]
-        @test all(abs(c1-c2) .< EPSILON*c0)
-        @test all(abs(c1-c3) .< EPSILON*c0)
+        @test all(abs.(c1-c2) .< EPSILON*c0)
+        @test all(abs.(c1-c3) .< EPSILON*c0)
 
         # C) Check that the initial covariances match
         # While this should be redundant with above test, let's just be sure
         NIV = max(0,q-p+1)
         if NIV>0
-            @test all(abs(m1.covarIV[1:NIV].-m2.covarIV[1:NIV]) .< EPSILON*c0)
-            @test all(abs(m1.covarIV[1:NIV].-m3.covarIV[1:NIV]) .< EPSILON*c0)
+            @test all(abs.(m1.covarIV[1:NIV].-m2.covarIV[1:NIV]) .< EPSILON*c0)
+            @test all(abs.(m1.covarIV[1:NIV].-m3.covarIV[1:NIV]) .< EPSILON*c0)
         end
 
         # D) Check that the model rational function representation matches.
         if m1.q > 0
-            maxcoef = maximum(abs(m1.thetacoef))
-            @test all(abs(m1.thetacoef.-m2.thetacoef) .< EPSILON*maxcoef)
+            maxcoef = maximum(abs.(m1.thetacoef))
+            @test all(abs.(m1.thetacoef.-m2.thetacoef) .< EPSILON*maxcoef)
             # At this point, the m3 theta polynomial is not at all guaranteed to match
             # the others, so omit that test for now. If the model_covariance matches,
             # this test is not critical, but we'll think over how it can be improved.
         end
 
-        maxcoef = maximum(abs(m1.phicoef))
-        @test all(abs(m1.phicoef.-m2.phicoef) .< EPSILON*maxcoef)
-        @test all(abs(m1.phicoef.-m3.phicoef) .< EPSILON*maxcoef)
+        maxcoef = maximum(abs.(m1.phicoef))
+        @test all(abs.(m1.phicoef.-m2.phicoef) .< EPSILON*maxcoef)
+        @test all(abs.(m1.phicoef.-m3.phicoef) .< EPSILON*maxcoef)
 
         # E) Test model_psd. This isn't easy to see how to test, other than re-implement
         # the model_psd code itself!
         N = 50
         freq = collect(linspace(0, 0.5, N))
-        z = exp(-2im*pi *freq)
+        z = exp.(-2im*pi *freq)
         numer = m1.thetacoef[1] + zeros(Complex128, N)
         for i=1:m1.q
             numer += m1.thetacoef[i+1] * (z.^i)
@@ -249,14 +249,14 @@ function test4()
         for i=1:m1.p
             denom += m1.phicoef[i+1] * (z.^i)
         end
-        psd = abs2(numer ./ denom)
-        threshold = 1e-3 * maximum(abs(psd[1]))
-        @test all(abs(psd - model_psd(m1, N)) .< threshold)
-        # @test all(abs(psd - model_psd(m2, N)) .< threshold)
-        # @test all(abs(psd - model_psd(m3, N)) .< threshold)
-        @test all(abs(psd - model_psd(m1, freq)) .< threshold)
-        # @test all(abs(psd - model_psd(m2, freq)) .< threshold)
-        # @test all(abs(psd - model_psd(m3, freq)) .< threshold)
+        psd = abs2.(numer ./ denom)
+        threshold = 1e-3 * maximum(abs.(psd[1]))
+        @test all(abs.(psd - model_psd(m1, N)) .< threshold)
+        # @test all(abs.(psd - model_psd(m2, N)) .< threshold)
+        # @test all(abs.(psd - model_psd(m3, N)) .< threshold)
+        @test all(abs.(psd - model_psd(m1, freq)) .< threshold)
+        # @test all(abs.(psd - model_psd(m2, freq)) .< threshold)
+        # @test all(abs.(psd - model_psd(m3, freq)) .< threshold)
 
     end
 end
@@ -275,18 +275,18 @@ function test_sum_exp(bases::Vector, ampls::Vector, N::Integer)
     for (b,a) in zip(bfit,afit)
         cmodel += real(a*(b.^(0:N-1)))
     end
-    @test all(abs(cmodel-signal) .< 1e-6)
+    @test all(abs.(cmodel-signal) .< 1e-6)
 
     # Now test the full fitARMA function, with 0 and then 1 exceptional value.
     p = length(bases)
     model = fitARMA(signal, p, p-1)
     cmodel = model_covariance(model, N)
-    @test all(abs(cmodel-signal) .< 1e-6)
+    @test all(abs.(cmodel-signal) .< 1e-6)
 
     signal[1] *= 2
     model = fitARMA(signal, p)
     cmodel = model_covariance(model, N)
-    @test all(abs(cmodel-signal) .< 1e-6)
+    @test all(abs.(cmodel-signal) .< 1e-6)
 end
 
 function test5()
@@ -325,14 +325,14 @@ function test6()
         v = randn(N)
         correct_tw = The \ (Phi * v)
         tw = toeplitz_whiten(model, v)
-        @test all(abs(tw - correct_tw) .< 1e-6)
+        @test all(abs.(tw - correct_tw) .< 1e-6)
         # Whiten in place
         toeplitz_whiten!(model, v)
-        @test all(abs(v - correct_tw) .< 1e-6)
+        @test all(abs.(v - correct_tw) .< 1e-6)
     end
 end
 
-arrays_similar(v::Array, w::Array, eps=1e-10) = all(abs(v-w) .< eps)
+arrays_similar(v::Array, w::Array, eps=1e-10) = all(abs.(v-w) .< eps)
 
 
 # 7) Test internals used by whiten, unwhiten, solve_covariance, mult_covariance
@@ -364,7 +364,9 @@ function test7()
             v = randn(N)
             @test arrays_similar(M*v, B*v)
             @test arrays_similar(M\v, B\v)
-            @test arrays_similar(M'\v, ARMA.transpose_solve(B, v))
+            X1 = M'\v
+            X2 = ARMA.transpose_solve(B, v)
+            @test arrays_similar(X1, X2)
         end
     end
 end
@@ -379,14 +381,15 @@ function test8()
         N = 16
         gamma = model_covariance(model, N)
         R = ARMA.toeplitz(gamma, gamma)
-        L = Matrix(chol(R, Val{:L}))
+        L = Matrix(chol(R)')
         x = zeros(Float64, N)
         y = zeros(Float64, N)
         x[1:model.p+1] = model.phicoef
         y[1] = x[1]
         Phi = ARMA.toeplitz(x, y)
-        RR = Phi*R*Phi'
-        LL = Matrix(chol(RR, Val{:L}))
+        # must force symmetry, or numerical precision will make chol() fail.
+        RR = Hermitian(Phi*R*Phi')
+        LL = Matrix(chol(RR)')
 
         solver = ARMASolver(model, N)
         for N in [2,4,6,8,10,14]

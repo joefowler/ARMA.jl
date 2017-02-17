@@ -77,8 +77,8 @@ type ARMAModel
     function ARMAModel(p,q,roots_,poles,thetacoef,phicoef,covarIV,expbases,expampls)
         @assert p == length(poles)
         @assert q == length(roots_)
-        @assert all(abs2(poles) .> 1)
-        @assert all(abs2(roots_) .> 1)
+        @assert all(abs2.(poles) .> 1)
+        @assert all(abs2.(roots_) .> 1)
         @assert p+1 == length(phicoef)
         @assert q+1 == length(thetacoef)
         @assert p == length(expbases)
@@ -153,8 +153,8 @@ function ARMAModel(thetacoef::Vector, phicoef::Vector)
     phi = phicoef / phicoef[1]
     roots_ = roots(Poly(theta))
     poles = roots(Poly(phi))
-    @assert all(abs2(roots_) .> 1)
-    @assert all(abs2(poles) .> 1)
+    @assert all(abs2.(roots_) .> 1)
+    @assert all(abs2.(poles) .> 1)
     q = length(roots_)
     p = length(poles)
 
@@ -179,8 +179,8 @@ end
 # Construct from roots-and-poles representation. We also need the gamma_0 value
 # (the process variance) to set the scale of the model, as roots-and-poles omits this.
 function ARMAModel(roots_::Vector, poles::Vector, variance)
-    @assert all(abs2(roots_) .> 1)
-    @assert all(abs2(poles) .> 1)
+    @assert all(abs2.(roots_) .> 1)
+    @assert all(abs2.(poles) .> 1)
     # The product of the roots and the product of the poles needs to be real.
     pr = prod(roots_)
     pp = prod(poles)
@@ -352,7 +352,7 @@ function model_psd(m::ARMAModel, freq::Vector)
     for i=1:m.p
         denom += m.phicoef[i+1] * (z.^i)
     end
-    abs2(numer ./ denom)
+    abs2.(numer ./ denom)
 end
 
 model_psd(m::ARMAModel, N::Int) = model_psd(m, collect(linspace(0, 0.5, N)))

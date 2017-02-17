@@ -65,7 +65,7 @@ function estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)
         padded_data[1:chunklength] = timeseries[i+1:i+chunklength] - datamean
         chunks_consumed += 1
 
-        power = abs2(rfft(padded_data))
+        power = abs2.(rfft(padded_data))
         acsum = irfft(power, length(padded_data))
         result += acsum[1:nsamp]
         i += chunklength
@@ -103,7 +103,7 @@ function main_exponentials(data::Vector, nexp::Int)
         H[:,c] = data[c:c+N-ncol]
     end
     U,s,V = find_svd_randomly(H[1:end-1,:], nexp)
-    W = diagm(1.0 ./ sqrt(s))
+    W = diagm(s .^ (-0.5))
     A = W*U'*H[2:end,:]*V*W
     eigvals(A)
 end

@@ -59,6 +59,8 @@ end
 # BandedLTMatrix{T}(nr::Integer, nb::Integer) = BandedLTMatrix{T}(Array{T}(nr, nb))
 BandedLTMatrix(T::Type, nr::Integer, nb::Integer) = BandedLTMatrix(zeros(T, nr, nb))
 
+Base.linearindexing{T<:BandedLTMatrix}(::Type{T}) = Base.LinearFast()
+
 import Base: getindex,setindex!,size,*, \
 
 function getindex(B::BandedLTMatrix, r::Integer, c::Integer)
@@ -81,7 +83,7 @@ function setindex!(B::BandedLTMatrix, x, r::Integer, c::Integer)
     B.m[r, end+c-r] = x
 end
 
-size(B::BandedLTMatrix) = [B.nrows, B.nrows]
+size(B::BandedLTMatrix) = (B.nrows, B.nrows)
 
 function *(B::BandedLTMatrix, v::Vector)
     if B.nrows != length(v)
@@ -116,8 +118,9 @@ function transpose_solve(B::BandedLTMatrix, v::Vector)
     x = similar(v)
     Nv = length(v)
     x[Nv] = v[Nv] / B[Nv,Nv]
+
     for i = Nv-1:-1:Nv-B.nbands+1
-        x[i] = (v[i] - dot(vec(B[i+1:end,i]), x[i+1:end]))/B[i,i]
+        x[i] = (v[i] - dot(vec(B[i+1:Nv,i]), x[i+1:end]))/B[i,i]
     end
     for i = Nv-B.nbands:-1:1
         x[i] = (v[i] - dot(vec(B[i+1:i+B.nbands,i]), x[i+1:i+B.nbands]))/B[i,i]
@@ -176,7 +179,8 @@ function ARMASolver(m::ARMAModel, N::Integer)
     x[1:m.p+1] = m.phicoef
     y[1] = x[1]
     Phi = toeplitz(x, y)
-    RR_corner = Phi*R_corner*Phi'
+    # Hermitian enforces exact symetry even after round-off error.
+    RR_corner = Hermitian(Phi*R_corner*Phi')
     RR_toeplitz = zeros(Float64, 2m.q+1)
     RR_toeplitz[1:m.q+1] = RR_corner[end, end-m.q:end]
     RR_toeplitz[m.q+1:end] = RR_corner[end, end:-1:end-m.q]
@@ -185,7 +189,7 @@ function ARMASolver(m::ARMAModel, N::Integer)
     # Now compute LL such that LL*LL' == RR, without ever representing RR as a full
     # matrix in memory. Awesome.
     LL = BandedLTMatrix(Float64, N, Nbands)
-    LL_corner = chol(RR_corner, Val{:L})
+    LL_corner = chol(RR_corner)'
     for r=1:min(Nc,N)
         for c=1+max(0,r-Nbands):r
             LL[r,c] = LL_corner[r,c]
