@@ -54,6 +54,7 @@ type ARMASolver
     RRu       ::Matrix{Float64}   # The upper left (p)x(p+q) corner of RR-RRt
     RRt       ::Vector{Float64}   # The banded Toeplitz part of RR
     LL        ::BandedLTMatrix{Float64}   # LL = lower Cholesky factor of RR, also banded
+    # LL        ::SparseMatrixCSC{Float64}   # LL = lower Cholesky factor of RR, also banded
 
     function ARMASolver(p, q, phicoef, covarIV, RRu, RRt, LL)
         @assert p>=0
@@ -88,6 +89,7 @@ function ARMASolver(m::ARMAModel, N::Integer)
     # Now compute LL such that LL*LL' == RR, without ever representing RR as a full
     # matrix in memory. Awesome.
     LL = BandedLTMatrix(Float64, N, Nbands)
+    # LL = spzeros(Float64, N, N)
     LL_corner = chol(RR_corner)'
     for r=1:min(Nc,N)
         for c=1+max(0,r-Nbands):r
@@ -117,7 +119,7 @@ The expected value of `w*w'` is the identity matrix."""
 function whiten(solver::ARMASolver, v::AbstractVector)
     Phiv = convolve_same(v, solver.phicoef)
     const nv = length(v)
-    if nv  < solver.LL.nrows
+    if nv  < size(solver.LL)[1]
         return solver.LL[1:nv, 1:nv] \ Phiv
     end
     solver.LL \ Phiv
@@ -140,7 +142,7 @@ value of `v*v'` is the data covariance matrix of the ARMA model."""
 
 function unwhiten(solver::ARMASolver, w::AbstractVector)
     const nw = length(w)
-    if nw  < solver.LL.nrows
+    if nw  < size(solver.LL)[1]
         x = solver.LL[1:nw, 1:nw] * w
     else
         x = solver.LL * w
@@ -196,7 +198,7 @@ end
 function solve_covariance(solver::ARMASolver, v::AbstractVector)
     const nv = length(v)
     v1 = whiten(solver, v)
-    if nv  < solver.LL.nrows
+    if nv  < size(solver.LL)[1]
         v2 = solver.LL[1:nv,1:nv]' \ v1
     else
         v2 = transpose_solve(solver.LL, v1)
