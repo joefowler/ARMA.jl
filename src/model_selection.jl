@@ -39,9 +39,9 @@ chunks. The recommended value for long data sets is to let chunklength be at
 least 10-20x nsamp.
 """
 
-estimate_covariance(timeseries::Vector) = estimate_covariance(timeseries, length(timeseries))
+estimate_covariance(timeseries::AbstractVector) = estimate_covariance(timeseries, length(timeseries))
 
-function estimate_covariance(timeseries::Vector, nsamp::Int)
+function estimate_covariance(timeseries::AbstractVector, nsamp::Int)
     const N = length(timeseries)
     ideal_chunksize = 15*nsamp
     nchunks = div(N-1+ideal_chunksize, ideal_chunksize)
@@ -73,10 +73,15 @@ function estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)
     result ./ (chunks_consumed * collect(chunklength:-1:chunklength+1-nsamp))
 end
 
+
+
 """Find the `nexp` "main exponentials" in the time stream `data`.
 
-Specifically, follow the prescription of XXX & YYY in "blah" *J. Statistics* (1995),
-building a matrix H whose columns are contiguous segments of the time stream.
+Specifically, follow the prescription of P. De Groen & B. De Moor (1987).
+"The fit of a sum of exponentials to noisy data." J. Computational & Applied
+Mathematics, vol. 20, pages 175–187.
+
+We build a Hankel matrix H whose columns are contiguous segments of the time stream.
 Perform a singular value decomposition to find the rank-`nexp` decomposition of H,
 from which we can construct the square matrix A (of size `nexp`) which is known
 to be similar to the "system matrix" (i.e., a time-step-advance matrix). The
@@ -96,8 +101,11 @@ is very, very long.
 """
 
 function main_exponentials(data::Vector, nexp::Int)
-    N = length(data)
-    ncol = 40 + 5*nexp
+    const N = length(data)
+    if 2nexp > N
+        error("Cannot compute $(nexp) exponentials from data with fewer than twice as many data values.")
+    end
+    ncol = min(40 + 5nexp, div(N, 2))
     H = zeros(Float64, N+1-ncol, ncol)
     for c=1:ncol
         H[:,c] = data[c:c+N-ncol]
