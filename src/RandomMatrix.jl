@@ -6,10 +6,12 @@
 # See http://arxiv.org/abs/0909.4061.
 
 
-"Find range of matrix `A` (with size m,n) using `num_lhs` random vectors and
-with `q` power iterations. Returns range matrix Q of size (m,num_lhs).
+"""`find_range_randomly(A, num_lhs, [q])`
 
-Based on Halko Martinsson & Tropp Algorithm 4.3."
+Find range of matrix `A` (with size m,n) using `num_lhs` random vectors and with
+`q` power iterations (default q=1). Returns range matrix Q of size (m,num_lhs).
+
+Based on Halko Martinsson & Tropp Algorithm 4.3."""
 
 function find_range_randomly(A::AbstractMatrix, num_lhs::Integer, q=1)
     m,n = size(A)
@@ -24,12 +26,14 @@ function find_range_randomly(A::AbstractMatrix, num_lhs::Integer, q=1)
 end
 
 
-"Compute a randomized SVD of `A` as *approximately* the matrix `U*W*V'` with rank=`num_lhs`,
-where W is diagonal. Returns `(U, diag(W), V)` (note *not* the transpose of V).
-U and V will have only `num_lhs` columns, and similarly `diag(W)` will be of
-length `num_lhs`.
+"""`find_svd_randomly(A, num_lhs, [q])`
 
-Based on Halko Martinsson & Tropp Algorithm 5.1."
+Compute a randomized SVD of `A` as *approximately* the matrix `U*W*V'` with
+rank=`num_lhs`, where W is diagonal. Returns `(U, diag(W), V)` (note: *not* the
+transpose of V). U and V will have only `num_lhs` columns, and similarly
+`diag(W)` will be of length `num_lhs`. Uses `q` (default q=2) power iterations.
+
+Based on Halko Martinsson & Tropp Algorithm 5.1."""
 
 function find_svd_randomly(A::AbstractMatrix, num_lhs::Integer, q=2)
     Q = find_range_randomly(A, num_lhs, q)

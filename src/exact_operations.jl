@@ -3,10 +3,12 @@
 # (lower) decomposition L, and for L'.
 #
 
-"Convolve the vector `b` with `kernel`, yielding a vector of the same size
-as `b`, effectively padding the input with initial zeros as needed. This is
+"""`convolve_same(b, kernel)`
+
+Convolve the vector `b` with `kernel`, yielding a vector of the same size
+as `b`, effectively padding `b` with `length(kernel)-1` initial zeros. This is
 equivalent to multiplying `b` by the banded lower triangular Toeplitz matrix
-whose first column begins with `kernel`."
+whose first column begins with `kernel`."""
 
 function convolve_same(b::AbstractVector, kernel::AbstractVector)
     x = kernel[1] * Array(b)
@@ -16,9 +18,14 @@ function convolve_same(b::AbstractVector, kernel::AbstractVector)
     x
 end
 
-"Reverse the effect of `convolve_same(b, kernel)`. That is, solve Kx=b for
-x where K is the banded lower triangular Toeplitz matrix whose first row
-begins with `kernel`."
+
+
+"""`deconvolve_same(b, kernel)`
+
+Reverse the effect of `convolve_same(b, kernel)`. That is, solve `Kx=b` for
+`x` where `K` is the banded lower triangular Toeplitz matrix whose first row
+begins with `kernel`."""
+
 function deconvolve_same(b::AbstractVector, kernel::AbstractVector)
     const Nk, N = length(kernel), length(b)
     lenrek = reverse(kernel[2:end])
@@ -33,17 +40,21 @@ function deconvolve_same(b::AbstractVector, kernel::AbstractVector)
 end
 
 
-"
-An object containing the information needed to perform certain noise-related operations
-on a vector within an ARMA model, including the following (where `R` is the ARMA model
-noise covariance matrix and `L` is its lower Cholesky factor):
+"""`ARMASolver(m, N)`
+
+An object containing the information needed to perform certain noise-related
+operations on a vector within an ARMA model `m::ARMAModel`, including the
+following (where `R` is the ARMA model noise covariance matrix and `L` is its
+lower Cholesky factor):
 
 1. L\\v  `whiten(solver, v)`
 1. L*v  `unwhiten(solver, v)`
 1. R\\v  `solve_covariance(solver, v)`
 1. R*v  `mult_covariance(solver, v)`
-1. inv(R[1:N,1:N]) `inverse_covariance(solver, N)`
-"
+1. inv(R[1:n,1:n]) `inverse_covariance(solver, n)`
+
+Note that the object is constructed with a maximum vector length `N`, so that
+these operations require `length(v) <= N` and `n <= N`."""
 
 type ARMASolver
     p         ::Int
@@ -110,11 +121,15 @@ function ARMASolver(m::ARMAModel, N::Integer)
 end
 
 
+
 """`whiten(solver::ARMASolver, v::Vector)`
 
 Use `solver` for an ARMA model to whiten the vector `v`. Here, "whiten" means
-return `w=L\\v`, where `L` is the lower Cholesky factor of the covariance matrix.
-The expected value of `w*w'` is the identity matrix."""
+return `w=L\\v`, where `L` is the lower Cholesky factor of the covariance
+matrix. If `v` has expectation zero, then  the expected value of `w*w'` over
+noise realizations is the identity matrix.
+
+In place of `v`, a matrix can be used. Its columns whill be whitened."""
 
 function whiten(solver::ARMASolver, v::AbstractVector)
     Phiv = convolve_same(v, solver.phicoef)
@@ -135,10 +150,13 @@ end
 
 """`unwhiten(solver::ARMASolver, w::AbstractVector)`
 
-Use `solver` for an ARMA model to unwhiten the vector `w`. Here, "unwhiten" means
-return `v=L*w`, where `L` is the lower Cholesky factor of the covariance matrix.
-If the expected value of `w*w'` is the identity matrix, then the expected
-value of `v*v'` is the data covariance matrix of the ARMA model."""
+Use `solver` for an ARMA model to unwhiten the vector `w`. Here, "unwhiten"
+means return `v=L*w`, where `L` is the lower Cholesky factor of the covariance
+matrix. If the expected value of `w` is zeros and of `w*w'` is the identity
+matrix, then the expected value of `v*v'` is the data covariance matrix of the
+ARMA model.
+
+In place of `v`, a matrix can be used. Its columns whill be unwhitened."""
 
 function unwhiten(solver::ARMASolver, w::AbstractVector)
     const nw = length(w)
@@ -195,6 +213,12 @@ function mult_covariance(solver::ARMASolver, v::AbstractVector)
 end
 
 
+
+"""`solve_covariance(solver::ARMASolver, v::AbstractVector)`
+
+Use `solver` for an ARMA model to solve `Rx=v` where `R` is the noise covariance
+matrix."""
+
 function solve_covariance(solver::ARMASolver, v::AbstractVector)
     const nv = length(v)
     v1 = whiten(solver, v)
@@ -206,6 +230,12 @@ function solve_covariance(solver::ARMASolver, v::AbstractVector)
     reverse(convolve_same(reverse(v2), solver.phicoef))
 end
 
+
+
+"""`inverse_covariance(solver::ARMASolver, N)`
+
+Use `solver` for an ARMA model to compute the inverse noise covariance matrix,
+to size `[N,N]`."""
 
 function inverse_covariance(solver::ARMASolver, N::Integer)
     M = eye(N)
