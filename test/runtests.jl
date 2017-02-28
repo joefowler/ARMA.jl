@@ -3,7 +3,7 @@ using ARMA.BandedLTMatrix
 using Base.Test
 
 # 1) Test padded_length: rounds up to convenient size for FFT
-function test1()
+function test1_padded_length()
     @test ARMA.padded_length(1000) == 1024
     @test ARMA.padded_length(16) == 16
     @test ARMA.padded_length(12) == 16
@@ -18,7 +18,7 @@ function test1()
 end
 
 # 2) Test estimate_covariance
-function test2()
+function test2_estimate_covariance()
     @test estimate_covariance([0,2,0,-2]) == [2.0, 0.0, -2.0, 0.0]
     u = randn(2+2^13)
     r = u[3:end] + u[1:end-2] + 2*u[2:end-1]
@@ -51,7 +51,7 @@ function similar_list(a::Vector, b::Vector, eps)
     true
 end
 
-function test3()
+function test3_ARMA_representations()
     p,q = 3,3
     rs = 1+(randn(q) .^ 2)
     ps = 1+(randn(p) .^ 2)
@@ -69,7 +69,7 @@ end
 # 4) Now complete tests of several models that have been worked out carefully
 # on paper, as well as several that are randomly created.
 
-function test4()
+function test4_ARMA_representations()
     # Generate 6 models of fixed parameters and order (2,0), (0,2), (1,1), (1,2), (2,1), (2,2)
     thetas=Dict('A'=>[2], 'B'=>[2,2.6,.8], 'C'=>[2,1.6], 'D'=>[2,2.6,.8], 'E'=>[2,1.6], 'F'=>[2,2.6,.8])
     phis = Dict('A'=>[1,-.3,-.4], 'B'=>[1], 'C'=>[1,-.8], 'D'=>[1,-.8], 'E'=>[1,-.3,-.4], 'F'=>[1,-.3,-.4])
@@ -264,48 +264,54 @@ end
 
 # 5) Test fitting data to a sum-of-exponentials representation
 # and an ARMA model of order (p, q=p)
-function test_sum_exp(bases::Vector, ampls::Vector, N::Integer)
-    signal=zeros(Float64, N)
-    for (b,a) in zip(bases,ampls)
-        signal += real(a*(b.^(0:N-1)))
-    end
-    bfit,afit = fit_exponentials(signal, length(bases))
+function test_sum_exp(ampls::Vector, bases::Vector, N::Integer)
 
-    # Rather than testing the fit, test the model that it generates.
-    cmodel=zeros(Float64, N)
-    for (b,a) in zip(bfit,afit)
-        cmodel += real(a*(b.^(0:N-1)))
+    # First, make sure that exponential_model does the right thing.
+    t = 0:(N-1)
+    signal = ARMA.exponential_model(t, ampls, bases)
+    signal2 = zeros(signal)
+    for (b,a) in zip(bases,ampls)
+        signal2 += real(a*(b.^(0:N-1)))
     end
-    @test all(abs.(cmodel-signal) .< 1e-6)
+    @test all(abs.(signal2-signal) .< 1e-6*minimum(abs(ampls)))
+
+    # Now add a tiny bit of noise, fit exponentials and see what happens.
+    # Rather than testing the fit, test the model that it generates.
+    noise_level = 1e-3
+    signal += randn(N)*noise_level
+    NB = length(bases)
+    afit, bfit = fit_exponentials(signal, pmin=NB, pmax=NB)
+    cmodel = ARMA.exponential_model(t, afit, bfit)
+    @test all(abs.(cmodel-signal) .< 50noise_level)
 
     # Now test the full fitARMA function, with 0 and then 1 exceptional value.
     p = length(bases)
-    model = fitARMA(signal, p, p-1)
+    model = fitARMA(signal, p, p-1, deltar=noise_level, pmin=p-2)
     cmodel = model_covariance(model, N)
-    @test all(abs.(cmodel-signal) .< 1e-6)
+    @test all(abs.(cmodel-signal) .< 50noise_level)
 
     signal[1] *= 2
-    model = fitARMA(signal, p)
+    model = fitARMA(signal, p, p, deltar=noise_level, pmin=p-2)
     cmodel = model_covariance(model, N)
-    @test all(abs.(cmodel-signal) .< 1e-6)
+    @test all(abs.(cmodel-signal) .< 50noise_level)
 end
 
-function test5()
-    bases=[.999,.98,.7+.1im,.7-.1im]
+function test5_exponential_fits()
     ampls=[5.0,4,3-1im,3+1im]
-    test_sum_exp(bases, ampls, 1000)
+    bases=[.999,.98,.7+.1im,.7-.1im]
+    test_sum_exp(ampls, bases, 400)
 
-    bases=[.99,.9,.1+.8im,.1-.8im]
     ampls=[7.0,5,3-1im,3+1im]
-    test_sum_exp(bases, ampls, 1000)
+    bases=[.99,.9,.1+.8im,.1-.8im]
+    test_sum_exp(ampls, bases, 400)
 
-    bases=[.999, .99, .95, .9, .7]
     ampls=[1,2,3,4,5]
-    test_sum_exp(bases, ampls, 1000)
+    bases=[.999, .99, .95, .9, .7]
+    test_sum_exp(ampls, bases, 400)
 end
 
 # 6) Test toeplitz_whiten and toeplitz_whiten! with an ARMA(2,2) and 5 random vectors
-function test6()
+function test6_toeplitz_whiten()
     r=[3,-3]
     poles = [1.25,-2]
     model = ARMAModel(r, poles, 10.0)
@@ -337,7 +343,7 @@ arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .<
 
 
 # 7) Test internals used by whiten, unwhiten, solve_covariance, mult_covariance
-function test7()
+function test7_whiten_internals()
     for i=1:5
         N = 50
         v = randn(N)
@@ -373,7 +379,7 @@ function test7()
 end
 
 # 8) Test whiten, unwhiten, solve_covariance, mult_covariance
-function test8()
+function test8_whiten()
     model23 = ARMAModel([1.2,1.1,1.02], [1.25, -2], 10)
     model32 = ARMAModel([1.25,-2], [1.2,1.1,1.02], 10)
     model52 = ARMAModel([1.25,-2], [6,2.5,1.2,1.1,1.02], 10)
@@ -409,41 +415,45 @@ function test8()
 end
 
 # 9) Test BandedLTMatrix
-S = 6
-b = BandedLTMatrix(Int, S, S-1)
-for i=1:S
-    for j=1:S
-        @test b[i,j] == 0
+function testBandedLT()
+    S = 6
+    b = BandedLTMatrix(Int, S, S-1)
+    for i=1:S
+        for j=1:S
+            @test b[i,j] == 0
+        end
+    end
+    @test_throws ArgumentError b=BandedLTMatrix(Int, 3, 6)
+    @test_throws ArgumentError b=BandedLTMatrix(eye(4), 0) # Caught in constructor
+    @test_throws ErrorException b=BandedLTMatrix(eye(4), -3) # Errors before constructor
+
+    for nbands = 1:6
+        bx = eye(6); bx[nbands,1] = 4
+        # Check that band-counting works
+        b = BandedLTMatrix(bx)
+        @test b.nbands == nbands
+
+        # Check that band-counting allows values < eps to count as zero
+        b = BandedLTMatrix(bx; eps=10)
+        @test b.nbands == 1
+
+        # Check that we can insist on a # of bands regardless of the input m.
+        forced_nb = 3
+        b = BandedLTMatrix(bx, forced_nb)
+        @test b.nbands == forced_nb
+        if nbands > forced_nb
+            @test b[nbands, 1] == 0
+        end
     end
 end
-@test_throws ArgumentError b=BandedLTMatrix(Int, 3, 6)
-@test_throws ArgumentError b=BandedLTMatrix(eye(4), 0) # Caught in constructor
-@test_throws ErrorException b=BandedLTMatrix(eye(4), -3) # Errors before constructor
 
-for nbands = 1:6
-    bx = eye(6); bx[nbands,1] = 4
-    # Check that band-counting works
-    b = BandedLTMatrix(bx)
-    @test b.nbands == nbands
 
-    # Check that band-counting allows values < eps to count as zero
-    b = BandedLTMatrix(bx; eps=10)
-    @test b.nbands == 1
-
-    # Check that we can insist on a # of bands regardless of the input m.
-    forced_nb = 3
-    b = BandedLTMatrix(bx, forced_nb)
-    @test b.nbands == forced_nb
-    if nbands > forced_nb
-        @test b[nbands, 1] == 0
-    end
-end
-
-test1()
-test2()
-test3()
-test4() # Slow test: comment it out when testing other parts often.
-test5()
-test6()
-test7()
-test8()
+test1_padded_length()
+test2_estimate_covariance()
+test3_ARMA_representations()
+# test4_ARMA_representations() # Slow test: comment it out when testing other parts often.
+test5_exponential_fits()
+test6_toeplitz_whiten()
+test7_whiten_internals()
+test8_whiten()
+testBandedLT()

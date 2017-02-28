@@ -3,6 +3,7 @@
 #
 
 include("RandomMatrix.jl")
+include("optimize_exponentials.jl")
 
 function padded_length(N::Integer)
     powerof2 = round(Int, 2^ceil(log2(N)))
@@ -75,7 +76,9 @@ end
 
 
 
-"""Find the `nexp` "main exponentials" in the time stream `data`.
+"""`main_exponentials(data, nexp; minexp=nothing)`
+
+Find the `nexp` "main exponentials" in the time stream `data`.
 
 Specifically, follow the prescription of P. De Groen & B. De Moor (1987).
 "The fit of a sum of exponentials to noisy data." J. Computational & Applied
@@ -95,16 +98,25 @@ Note that the current implementation does not construct the exact SVD of H,
 but rather uses a randomized matrix technique to compute an *approximate* SVD
 very efficiently, containing only a specified number of leading singular vectors.
 
+If `minexp==nothing` (the default), then only the length-`nexp` model is found.
+If `minexp ≤ nexp`, then this function returns an array of arrays, one for each
+value `p` with `minexp ≤ p ≤ nexp`, so that the length of the first is `minexp`
+and the length of the last is `nexp`.
+
 TODO: we need a better heuristic for constructing H out of a sufficient number
 of segments from the data, without allowing it to get insanely large when `data`
 is very, very long.
 """
 
-function main_exponentials(data::Vector, nexp::Int)
+function main_exponentials(data::Vector, nexp::Int; minexp=nothing)
     const N = length(data)
     if 2nexp > N
         error("Cannot compute $(nexp) exponentials from data with fewer than twice as many data values.")
     end
+    if (minexp != nothing) && (minexp > nexp)
+        error("The value of `minexp` must be nothing or a number no larger than `nexp`.")
+    end
+
     ncol = min(40 + 5nexp, div(N, 2))
     H = zeros(Float64, N+1-ncol, ncol)
     for c=1:ncol
@@ -113,38 +125,248 @@ function main_exponentials(data::Vector, nexp::Int)
     U,s,V = find_svd_randomly(H[1:end-1,:], nexp)
     W = diagm(s .^ (-0.5))
     A = W*U'*H[2:end,:]*V*W
-    eigvals(A)
-end
 
-
-"Fit the time series `data` as a sum of `nexp` possibly complex exponentials.
-Use `main_exponentials` to determine the exponential bases, then perform a
-simple least-squares fit to determine the amplitudes."
-
-function fit_exponentials(data::Vector, nexp::Int)
-    bases = main_exponentials(data, nexp)
-    N = length(data)
-    M = Array{eltype(bases)}(N, nexp)
-    for i=1:nexp
-        M[:,i] = bases[i] .^ (0:N-1)
+    # By default, return the exponential set of size nexp only.
+    if minexp == nothing
+        return sortbases!(eigvals(A))
     end
-    amplitudes = pinv(M)*data
-    bases, amplitudes
+
+    # The minexp has been set, so return all sizes minexp...nexp, inclusive.
+    exps = []
+    for p = minexp:nexp
+        A = W[1:p, 1:p]*U[:,1:p]'*H[2:end,:]*V[:,1:p]*W[1:p,1:p]
+        push!(exps, sortbases!(eigvals(A)))
+    end
+    exps
 end
 
-function fitARMA(covariance::Vector, p::Int, q::Int)
+
+"""`sortbases!(b)`
+
+Re-order the elements of `b` in place, such that for every pair b[1],b[2] and so
+on, either both are real, or they are complex conjugates of one another.
+Elements of `b` with negative imaginary parts are simply assumed to be
+conjugates of those with positive imaginary parts. The complex pairs will come
+first, followed by the real elements.
+
+Returns the sorted `b`."""
+
+function sortbases!(b::Vector)
+    real_ones = real(b[imag(b) .== 0])
+    sort!(real_ones, rev=true)
+    if length(real_ones) < length(b)
+        imag_ones = b[imag(b) .> 0]
+        if length(imag_ones) != sum(imag(b) .< 0)
+            error("sortbases!(b) requires that b contain equal numbers of elements with imag(x) > 0 and < 0.")
+        end
+        for i=1:length(imag_ones)
+            b[2i-1] = imag_ones[i]
+            b[2i] = conj(imag_ones[i])
+        end
+        b[2*length(imag_ones)+1:end] = real_ones[:]
+    else
+        b[:] = real_ones[:]
+    end
+    b
+end
+
+
+"""`B2C(B)`
+
+Converts an array `B` of exponential bases to the coefficients of the set of
+monic quadratic polynomials.
+
+It is assumed that B are arranged such that B[1] and B[2] are either both real
+or are complex conjugates of one another, and similarly for elements (3,4), (5,6),
+and so on. Use `sortbases!(B)` to achieve this.
+
+If `B` violates these assumptions, then the computed `C` will make no sense.
+
+Returns `C` such that B[1:2] are the roots of x^2+C[1]*X+C[2], and similarly for
+[3:4] and all other pairs. If length(B) is odd, then B[end] is the root of x+C[end],
+thus `-1 = B[end]*C[end]`."""
+
+function B2C{T<:Number}(B::AbstractVector{T})
+    C = zeros(Float64, length(B))
+    const n = length(B)
+    for i=1:2:n-1
+        C[i] = -real(B[i]+B[i+1])
+        C[i+1] = real(B[i]*B[i+1])
+    end
+    if n%2 > 0
+        C[end] = -1/real(B[end])
+    end
+    C
+end
+
+
+
+"""`C2B(C)`
+
+Converts a real array of polynomial coefficients `C` to their roots. See `B2C(B)`
+for more.
+
+Returns `B`, the possibly complex roots."""
+
+function C2B{T<:Real}(C::AbstractVector{T})
+    B = zeros(Complex{eltype(C)}, C)
+    const n = length(C)
+    iscomplex = false
+    for i = 1:2:n-1
+        x = -0.5C[i]
+        disc = x*x-C[i+1]
+        if disc >= 0
+            y::Complex128 = sqrt(disc)
+        else
+            y = 1im*sqrt(-disc)
+            iscomplex = true
+        end
+        B[i] = x+y
+        B[i+1] = x-y
+    end
+    if n%2 > 0
+        B[end] = -1/C[end]
+    end
+    if !iscomplex
+        return real(B)
+    end
+    B
+end
+
+
+
+"""`findA(t, r, B, [w=weights])`
+
+Compute the amplitudes `A` for a linear model of the form
+
+r_t ≈ f(t) = Sum_{i=1...p} A[i] B[i]^t
+
+by minimizing
+
+Sum_t [w_t (r_t - f(t))^2].
+
+This is a linear problem, given `B`. If `w` is not given, then equal weights on
+all data are assumed.
+
+Returns the array of amplitudes `A`."""
+
+function findA{T<:Number}(t::AbstractVector, r::Vector, B::Vector{T}; w=nothing)
+    @assert length(t) == length(r)
+    if w==nothing
+        w = ones(r)
+    end
+    wr = w.*r
+    const p = length(B)
+    M = zeros(T, p, p)
+    D = zeros(T, p)
+    for i=1:p
+        for j=1:i
+            M[j,i] = M[i,j] = sum(w .* (B[i]*B[j]).^t)
+        end
+        D[i] = sum(wr .* B[i].^t)
+    end
+
+    A = M \ D
+end
+
+
+
+"""`exponential_model(t, A, B)`
+
+Computes and returns the sum-of-exponentials model with amplitudes `A` and
+exponential bases `B` at time steps `t`."""
+
+function exponential_model(t::AbstractVector, A::Vector, B::Vector)
+    r = zeros(Float64, length(t))
+    for i=1:length(A)
+        r += real(A[i]* B[i].^t)
+    end
+    r
+end
+
+
+
+"""`fit_exponentials(data; pmin=0, pmax=6, w=nothing, deltar=nothing, good_enough=0.0)`
+
+Fit the time series `data` (regularly sampled) as a sum of possibly complex
+exponentials numbering at least `pmin` and at most `pmax`. Uses
+`main_exponentials` to determine a starting guess for the exponential bases.
+Then a nonlinear fit is attempted, using NLopt with the :LD_MMA method.
+
+The penalty function is a weighted sum-of-square-errors. If the optional
+argument `w` is given, it must be a vector of the same length as `data`, and
+then the penalty is the sum over all samples of `w[i]*(model[i]-data[i])^2`.
+
+If `w` is absent, then the weights are taken to be all equal to `deltar^(-2)`.
+
+If `deltar` is also not given, then it is estimated from the standard deviation
+of the successive-differences from the last 1/4 of the samples in `data`, on the
+assumption that these are noise-dominated. If they aren't, then the caller must
+offer a better figure for `w` or `deltar`.
+
+If `good_enough` is assigned a positive value, and if any model order p<pmax
+produces a penalty function less than this value, then this function returns
+early with the lowest-order model that meets the criterion.
+
+Returns `A,B`, the amplitudes and exponential bases of the best-fit model. Their
+length gives the order of the best-fit model.
+
+If `pmin` < `pmax`, then models of more than one order will be tried, and the one
+with the lowest penalty function will be returned.
+"""
+
+function fit_exponentials(data::Vector; pmin=0, pmax=6,
+    w=nothing, deltar=nothing, good_enough=0.0)
+
+    guess_exponentials = main_exponentials(data, pmax, minexp=pmin)
+
+    const N = length(data)
+    if w == nothing
+        # If deltar isn't given, use the heuristic that the std dev of the
+        # diff of the last values in data estimates sqrt(2) times deltar.
+        if deltar == nothing
+            n = div(N, 4)
+            deltar = std(diff(data[end-n:end]), mean=0) / sqrt(2)
+        end
+
+        w = ones(Float64, N) * (deltar .^ -2)
+    end
+
+    best_cost = +Inf
+    best_fit = nothing
+    for (guess,p) = zip(guess_exponentials, pmin:pmax)
+        guessC = B2C(guess)
+        cost, fitC = optimize_exponentials(data, w, guessC)
+        if (cost < best_cost)
+            best_cost = cost
+            best_fit = fitC
+            # Stop early if cost is small enough.
+            if cost <= good_enough
+                break
+            end
+        end
+    end
+
+    bestB = C2B(best_fit)
+    t = 0:(length(data)-1)
+    bestA = findA(t, data, bestB, w=w)
+    bestA, bestB
+end
+
+
+function fitARMA(covariance::Vector, p::Int, q::Int;
+    w=nothing, deltar=nothing, good_enough=0.0, pmin=0)
     nspecial = max(1+q-p, 0)
-    bases, amplitudes = fit_exponentials(covariance[1+nspecial:end], p)
-    amplitudes ./= (bases .^ nspecial)
+    amplitudes, bases = fit_exponentials(covariance[1+nspecial:end], pmin=pmin, pmax=p,
+        w=w, deltar=deltar, good_enough=good_enough)
+    if nspecial > 0
+        amplitudes ./= (bases .^ nspecial)
+    end
     ARMAModel(bases, amplitudes, covariance[1:nspecial])
 end
 
 # Absent further information, we find that q=p is a good choice most of the time,
-# so let that be a default:
-fitARMA(covariance::Vector, p::Int) = fitARMA(covariance, p, p)
-
-# Now if the user has no idea what model order to use, that's a much more
-# complicated story.
-function fitARMA(covariance::Vector)
-    error("We don't have a plan yet for fitting ARMA models without a given order.")
-end
+# so let that be a default. Also, if we need a maximum order, we can supply
+# the rather arbitrary guess of 6.
+fitARMA(covariance::Vector, p::Int; kwargs...) = fitARMA(covariance, p, p; kwargs)
+fitARMA(covariance::Vector; kwargs...) = fitARMA(covariance, 6; kwargs)
