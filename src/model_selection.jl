@@ -329,7 +329,7 @@ function fit_exponentials(data::Vector; pmin=0, pmax=6,
             deltar = std(diff(data[end-n:end]), mean=0) / sqrt(2)
         end
 
-        w = ones(Float64, N) * (deltar .^ -2)
+        w = ones(Float64, N) / float(deltar^2)
     end
 
     best_cost = +Inf
