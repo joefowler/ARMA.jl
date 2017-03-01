@@ -106,6 +106,16 @@ type ARMAModel
     end
 end
 
+
+function Base.show(io::IO, m::ARMAModel)
+    print(io, "ARMAModel(p=$(m.p), q=$(m.q))\n")
+    print(io, "[Amplitude, Exponential base]\n")
+    for i=1:m.p
+        print(io, "(A,B)[$i]: $(m.expampls[i]),  $(m.expbases[i])\n")
+    end
+    print(io, "Initial covar: $(m.covarIV)\n")
+end
+
 "Go from theta,phi polynomials to the sum-of-exponentials representation.
 Returns (covar_initial_values, exponential_bases, exponential_amplitudes)."
 
