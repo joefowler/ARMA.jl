@@ -123,6 +123,14 @@ function optimize_exponentials(data::Vector, w::Vector, guessC::Vector)
     maxeval!(opt, 1000)
     stopval!(opt, 1e-6)
 
+    # Constraint bounds
+    lb = zeros(guessC)-Inf
+    ub = zeros(guessC)+Inf
+    lb[2:2:end] = -1
+    ub[2:2:end] = +1
+    lower_bounds!(opt, lb)
+    upper_bounds!(opt, ub)
+
     t = 0:length(data)-1
     buffer = ExpFitBuffer(data, t, p, w=w)
     minf = ARMA_objective(guessC, [], buffer)
