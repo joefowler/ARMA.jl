@@ -179,10 +179,45 @@ function transpose_solve(B::BandedLTMatrix, v::Vector)
     x[Nv] = v[Nv] / B[Nv,Nv]
 
     for i = Nv-1:-1:Nv-B.nbands+1
-        x[i] = (v[i] - dot(vec(B[i+1:Nv,i]), x[i+1:end]))/B[i,i]
+        d = v[i]
+        for k=i+1:Nv
+            d -= B[k,i] * x[k]
+        end
+        x[i] = d/B[i,i]
     end
     for i = Nv-B.nbands:-1:1
-        x[i] = (v[i] - dot(vec(B[i+1:i+B.nbands,i]), x[i+1:i+B.nbands]))/B[i,i]
+        d = v[i]
+        for k=i+1:i+B.nbands
+            d -= B[k,i]*x[k]
+        end
+        x[i] = d/B[i,i]
+    end
+    x
+end
+
+function transpose_solve(B::BandedLTMatrix, M::AbstractMatrix)
+    if B.nrows != size(M)[1]
+        throw(DimensionMismatch("first dimension of B, $(B.nrows), does not match length of M, $(size(M)[1])"))
+    end
+    x = similar(M)
+    Nv,Nc = size(M)
+    for c=1:Nc
+        x[Nv,c] = M[Nv,c] / B[Nv,Nv]
+
+        for i = Nv-1:-1:Nv-B.nbands+1
+            d = M[i,c]
+            for k=i+1:Nv
+                d -= B[k,i] * x[k,c]
+            end
+            x[i,c] = d/B[i,i]
+        end
+        for i = Nv-B.nbands:-1:1
+            d = M[i,c]
+            for k=i+1:i+B.nbands
+                d -= B[k,i]*x[k,c]
+            end
+            x[i,c] = d/B[i,i]
+        end
     end
     x
 end
