@@ -37,6 +37,13 @@ are ignored.
 # This representation puts the diagonal in m[:,end], the first sub-diagonal in
 # m[2:end, end-1] and so on.
 
+# Performance comment (March 16, 2017)
+# It seems that we would achieve faster multiplication and solves for BandedLTMatrix
+# if we were to replace it with a sparse type (e.g., speye(N)). The construction of
+# the BandedLTMatrix is MUCH faster, typically 50x. But the mulitply and solve operations
+# are approximately 2x faster for the sparse version. Thus, it might be smart to
+# remove this type entirely and replace its use with SparseMatrixCSC, someday...
+
 type BandedLTMatrix{T <: Number} <: AbstractMatrix{T}
     nrows::Int
     nbands::Int
@@ -126,11 +133,14 @@ function *(B::BandedLTMatrix, v::Vector)
     if B.nrows != N
         throw(DimensionMismatch("second dimension of B, $(B.nrows), does not match length of v, $(N)"))
     end
-    x = copy(v)
-    x .*= B.m[:,end]
-    for i=2:B.nbands
+    x = similar(v)
+    for i=1:N
+        x[i] = v[i]*B.m[i,end]
+    end
+    const Nb = B.nbands
+    for i=2:Nb
         for k=i:N
-            x[k] += B.m[k, end+1-i] * v[k-i+1]
+            x[k] += B.m[k, Nb+1-i] * v[k-i+1]
         end
     end
     x
@@ -195,7 +205,7 @@ function *(B::BandedLTMatrix, M::AbstractMatrix)
     x
 end
 
-function \(B::BandedLTMatrix, M::Matrix)
+function \(B::BandedLTMatrix, M::AbstractMatrix)
     R = similar(M)
     for c=1:size(M)[2]
         R[:,c] = B\M[:,c]
