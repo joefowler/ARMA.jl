@@ -40,9 +40,10 @@ are ignored.
 type BandedLTMatrix{T <: Number} <: AbstractMatrix{T}
     nrows::Int
     nbands::Int
-    m::AbstractMatrix{T}
+    zeroval::T
+    m::Matrix{T}
 
-    function BandedLTMatrix{T}(nrows::Int, nbands::Int, m::AbstractMatrix{T})
+    function BandedLTMatrix{T}(nrows::Int, nbands::Int, m::Matrix{T})
         nr,nc = size(m)
         if nr != nrows
             throw(ArgumentError("a BandedLTMatrix requires nrows==size(m)[1], but nrows=$nrows and size(m)==($nr,$nc)"))
@@ -53,7 +54,7 @@ type BandedLTMatrix{T <: Number} <: AbstractMatrix{T}
         elseif nbands > nrows
             throw(ArgumentError("a BandedLTMatrix requires nrows ≥ nbands, but $(nrows) < $(nbands)"))
         end
-        new(nrows, nbands, m)
+        new(nrows, nbands, zero(T), m)
     end
 end
 BandedLTMatrix{T <: Number}(nrows::Int, nbands::Int, m::AbstractMatrix{T}) = BandedLTMatrix{T}(nrows, nbands, m)
@@ -67,16 +68,11 @@ function BandedLTMatrix{T <: Number}(m::AbstractMatrix{T}; eps::Real=0.0)
         throw(ArgumentError("a BandedLTMatrix(m, eps=ϵ) requires ϵ ≥ 0, but eps=$(eps)"))
     end
     nrows, nbands = size(m)
-    empty = true
     for nbands = nrows:-1:2
         for r = nbands:nrows
             if abs(m[r, r+1-nbands]) > eps
-                empty = false
-                break
+                return BandedLTMatrix(m, nbands)
             end
-        end
-        if !empty
-            return BandedLTMatrix(m, nbands)
         end
     end
     BandedLTMatrix(m, 1)
@@ -99,7 +95,7 @@ function BandedLTMatrix{T <: Number}(m::AbstractMatrix{T}, nbands)
 end
 
 
-Base.linearindexing{T<:BandedLTMatrix}(::Type{T}) = Base.LinearSlow()
+Base.linearindexing{T<:BandedLTMatrix}(::Type{T}) = Base.LinearFast()
 
 import Base: getindex,setindex!,size,*, \
 
@@ -108,7 +104,7 @@ function getindex(B::BandedLTMatrix, r::Integer, c::Integer)
         throw(BoundsError(B,[r,c]))
     end
     if r<c || r-c >= B.nbands
-        return 0
+        return B.zeroval
     end
     B.m[r, end+c-r]
 end
@@ -126,27 +122,40 @@ end
 size(B::BandedLTMatrix) = (B.nrows, B.nrows)
 
 function *(B::BandedLTMatrix, v::Vector)
-    if B.nrows != length(v)
-        throw(DimensionMismatch("second dimension of B, $(B.nrows), does not match length of v, $(length(v))"))
+    const N = length(v)
+    if B.nrows != N
+        throw(DimensionMismatch("second dimension of B, $(B.nrows), does not match length of v, $(N)"))
     end
-    x = B.m[:,end] .* v
+    x = copy(v)
+    x .*= B.m[:,end]
     for i=2:B.nbands
-        x[i:end] += B.m[i:end,end+1-i] .* v[1:end+1-i]
+        for k=i:N
+            x[k] += B.m[k, end+1-i] * v[k-i+1]
+        end
     end
     x
 end
 
 function \(B::BandedLTMatrix, v::Vector)
-    if B.nrows != length(v)
-        throw(DimensionMismatch("second dimension of B, $(B.nrows), does not match length of v, $(length(v))"))
+    const N = length(v)
+    if B.nrows != N
+        throw(DimensionMismatch("second dimension of B, $(B.nrows), does not match length of v, $(N)"))
     end
     x = similar(v)
     x[1] = v[1] / B[1,1]
     for i=2:B.nbands
-        x[i] = (v[i] - dot(vec(B.m[i,end-i+1:end-1]), x[1:i-1]))/B[i,i]
+        d = v[i]
+        for k=1:i-1
+            d -= B.m[i, B.nbands-i+k] * x[k]
+        end
+        x[i] = d/B[i,i]
     end
     for i=B.nbands+1:B.nrows
-        x[i] = (v[i] - dot(vec(B.m[i,1:end-1]), x[i+1-B.nbands:i-1]))/B[i,i]
+        d = v[i]
+        for k=1:B.nbands-1
+            d -= B.m[i,k] * x[i+k-B.nbands]
+        end
+        x[i] = d/B[i,i]
     end
     x
 end
@@ -170,5 +179,26 @@ end
 
 transpose_solve(M::Matrix, v::Vector) = M'\v
 
-*(B::BandedLTMatrix, M::Matrix) = hcat([B*M[:,i] for i=1:size(M)[2]]...)
-\(B::BandedLTMatrix, M::Matrix) = hcat([B\M[:,i] for i=1:size(M)[2]]...)
+function *(B::BandedLTMatrix, M::AbstractMatrix)
+    s1,s2 = size(M)
+    if B.nrows != s1
+        throw(DimensionMismatch("second dimension of B, $(B.nrows), does not match length of M, $(s1)"))
+    end
+    x = zeros(M)
+    for i=1:B.nbands
+        for j=1:s2
+            for k=i:s1
+                x[k,j] += B.m[k,end+1-i] * M[k-i+1,j]
+            end
+        end
+    end
+    x
+end
+
+function \(B::BandedLTMatrix, M::Matrix)
+    R = similar(M)
+    for c=1:size(M)[2]
+        R[:,c] = B\M[:,c]
+    end
+    R
+end
