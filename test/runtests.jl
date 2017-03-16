@@ -445,6 +445,32 @@ function testBandedLT()
             @test b[nbands, 1] == 0
         end
     end
+
+    # Be sure that the zero parts of the array are of the right type
+    b1 = BandedLTMatrix(eye(S))
+    b2 = BandedLTMatrix(eye(S), 2)
+    @test typeof(b1[1,1]) == Float64
+    @test typeof(b1[S,1]) == Float64
+    @test typeof(b1[1,S]) == Float64
+    @test typeof(b2[1,1]) == Float64
+    @test typeof(b2[S,1]) == Float64
+    @test typeof(b2[1,S]) == Float64
+
+    # Test B*v, B\v, B*M, and B\M for vector v and matrix M
+    v = randn(S)
+    M = randn(S,3)
+    b = eye(S)*3 # Let b be diagonally dominant
+    for r=2:S
+        b[r,r-1:r] += randn(2)
+    end
+    B = BandedLTMatrix(b)
+    @test B.nbands == 2
+    @test arrays_similar(B*v, b*v)
+    @test arrays_similar(B*M, b*M)
+    @test arrays_similar(B\v, b\v)
+    @test arrays_similar(B\M, b\M)
+    @test arrays_similar(ARMA.transpose_solve(B, v), b'\v)
+    @test arrays_similar(ARMA.transpose_solve(B, v), B'\v)
 end
 
 
