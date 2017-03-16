@@ -348,6 +348,13 @@ function fit_exponentials(data::Vector; pmin=0, pmax=6,
     end
 
     bestB = C2B(best_fit)
+    # Force |bases| < 1. Use random choice, in case more than one is like this.
+    for i = 1:length(bestB)
+        if abs2(bestB[i]) >= 1
+            bestB[i] = (1-rand(1)[1]/4N)
+        end
+    end
+
     t = 0:(length(data)-1)
     bestA = findA(t, data, bestB, w=w)
     bestA, bestB
