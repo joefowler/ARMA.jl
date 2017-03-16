@@ -333,9 +333,6 @@ function test6_toeplitz_whiten()
         correct_tw = The \ (Phi * v)
         tw = toeplitz_whiten(model, v)
         @test all(abs.(tw - correct_tw) .< 1e-6)
-        # Whiten in place
-        toeplitz_whiten!(model, v)
-        @test all(abs.(v - correct_tw) .< 1e-6)
     end
 end
 
@@ -477,7 +474,7 @@ end
 test1_padded_length()
 test2_estimate_covariance()
 test3_ARMA_representations()
-# test4_ARMA_representations() # Slow test: comment it out when testing other parts often.
+test4_ARMA_representations() # Slow test: comment it out when testing other parts often.
 test5_exponential_fits()
 test6_toeplitz_whiten()
 test7_whiten_internals()
