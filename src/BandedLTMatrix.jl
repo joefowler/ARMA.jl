@@ -1,3 +1,12 @@
+# Note: March 21, 2017
+#
+# We are no longer using a BandedLTMatrix object to represent a banded lower-triangular
+# matrix, because it was slower than using a SparseMatrixCSC by a factor of at least
+# 2-3 on all operations, including construction, M-v multiply, M-M multiply,
+# M-v solve, M-M solve, and transpose operations.  Keep the code in git for now,
+# but I think that writing our own matrix type was too specialized to do efficiently.
+# Lesson learned.
+
 """`BandedLTMatrix(T, nrows, nbands)`
 
 `BandedLTMatrix(m; eps=0.0)`
@@ -246,4 +255,101 @@ function \(B::BandedLTMatrix, M::AbstractMatrix)
         R[:,c] = B\M[:,c]
     end
     R
+end
+
+
+# Here are two tests that used to live in runtests.jl.
+# But we aren't using BandedLTMatrix, so they've been removed.
+#
+function testBandedLT()
+    S = 6
+    b = BandedLTMatrix(Int, S, S-1)
+    for i=1:S
+        for j=1:S
+            @test b[i,j] == 0
+        end
+    end
+    @test_throws ArgumentError b=BandedLTMatrix(Int, 3, 6)
+    @test_throws ArgumentError b=BandedLTMatrix(eye(4), 0) # Caught in constructor
+    @test_throws ErrorException b=BandedLTMatrix(eye(4), -3) # Errors before constructor
+
+    for nbands = 1:6
+        bx = eye(6); bx[nbands,1] = 4
+        # Check that band-counting works
+        b = BandedLTMatrix(bx)
+        @test b.nbands == nbands
+
+        # Check that band-counting allows values < eps to count as zero
+        b = BandedLTMatrix(bx; eps=10)
+        @test b.nbands == 1
+
+        # Check that we can insist on a # of bands regardless of the input m.
+        forced_nb = 3
+        b = BandedLTMatrix(bx, forced_nb)
+        @test b.nbands == forced_nb
+        if nbands > forced_nb
+            @test b[nbands, 1] == 0
+        end
+    end
+
+    # Be sure that the zero parts of the array are of the right type
+    b1 = BandedLTMatrix(eye(S))
+    b2 = BandedLTMatrix(eye(S), 2)
+    @test typeof(b1[1,1]) == Float64
+    @test typeof(b1[S,1]) == Float64
+    @test typeof(b1[1,S]) == Float64
+    @test typeof(b2[1,1]) == Float64
+    @test typeof(b2[S,1]) == Float64
+    @test typeof(b2[1,S]) == Float64
+
+    # Test B*v, B\v, B*M, and B\M for vector v and matrix M
+    v = randn(S)
+    M = randn(S,3)
+    b = eye(S)*3 # Let b be diagonally dominant
+    for r=2:S
+        b[r,r-1:r] += randn(2)
+    end
+    B = BandedLTMatrix(b)
+    @test B.nbands == 2
+    @test arrays_similar(B*v, b*v)
+    @test arrays_similar(B*M, b*M)
+    @test arrays_similar(B\v, b\v)
+    @test arrays_similar(B\M, b\M)
+    @test arrays_similar(ARMA.transpose_solve(B, v), b'\v)
+    @test arrays_similar(ARMA.transpose_solve(B, v), B'\v)
+end
+
+function test7_whiten_internals()
+    for i=1:5
+        N = 50
+        v = randn(N)
+        vx = copy(v)
+        vx[2:end] += 0.8*v[1:end-1]
+        vy = copy(v)
+        vy[2:end] -= 0.3*v[1:end-1]
+        vy[3:end] -= 0.4*v[1:end-2]
+
+        @test arrays_similar( ARMA.convolve_same(v, [1, 0.8]), vx)
+        @test arrays_similar( ARMA.deconvolve_same(vx, [1, 0.8]), v)
+        @test arrays_similar( ARMA.convolve_same(v, [1, -.3, -.4]), vy)
+        @test arrays_similar( ARMA.deconvolve_same(vy, [1, -.3, -.4]), v)
+    end
+
+    for j=1:5
+        N, Nb = 30, 4
+        B = ARMA.BandedLTMatrix(randn(N,N), Nb)
+        B.m[:,end] += 2  # Make B diagonally dominant
+        M = zeros(Float64, N, N)
+        for i=1:Nb
+            M += diagm(B.m[i:end, end+1-i],  1-i)
+        end
+        for i=1:5
+            v = randn(N)
+            @test arrays_similar(M*v, B*v)
+            @test arrays_similar(M\v, B\v)
+            X1 = M'\v
+            X2 = ARMA.transpose_solve(B, v)
+            @test arrays_similar(X1, X2)
+        end
+    end
 end

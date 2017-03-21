@@ -476,7 +476,7 @@ function toeplitz(c::AbstractVector, r::AbstractVector)
     end
     t
 end
-include("BandedLTMatrix.jl")
+
 include("exact_operations.jl")
 
 end # module

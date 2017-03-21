@@ -64,8 +64,7 @@ type ARMASolver
     # RR = Phi*R*Phi', a banded matrix = RRt + RRu
     RRu       ::Matrix{Float64}   # The upper left (p)x(p+q) corner of RR-RRt
     RRt       ::Vector{Float64}   # The banded Toeplitz part of RR
-    LL        ::BandedLTMatrix{Float64}   # LL = lower Cholesky factor of RR, also banded
-    # LL        ::SparseMatrixCSC{Float64}   # LL = lower Cholesky factor of RR, also banded
+    LL        ::SparseMatrixCSC{Float64}   # LL = lower Cholesky factor of RR, also banded
 
     function ARMASolver(p, q, phicoef, covarIV, RRu, RRt, LL)
         @assert p>=0
@@ -99,8 +98,25 @@ function ARMASolver(m::ARMAModel, N::Integer)
 
     # Now compute LL such that LL*LL' == RR, without ever representing RR as a full
     # matrix in memory. Awesome.
-    LL = BandedLTMatrix(Float64, N, Nbands)
-    # LL = spzeros(Float64, N, N)
+    #
+    # Find the nontrivial sparse elements of this lower-triangular banded matrix
+    # LL, then construct with zero values, then fill them.
+    Ndata = N*Nbands - div(Nbands*(Nbands-1),2)
+    rows = Array(Int, Ndata)
+    cols = Array(Int, Ndata)
+    vals = zeros(Float64, Ndata)
+    i = 1
+    for r=1:min(N)
+        for c=1+max(0,r-Nbands):r
+            rows[i] = r
+            cols[i] = c
+            i += 1
+        end
+    end
+    @assert i-1 == Ndata
+    LL = sparse(rows, cols, vals, N, N)
+
+    # Fill LL with its nontrivial values.
     LL_corner = chol(RR_corner)'
     for r=1:min(Nc,N)
         for c=1+max(0,r-Nbands):r
