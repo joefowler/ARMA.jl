@@ -272,7 +272,7 @@ function test_sum_exp(ampls::Vector, bases::Vector, N::Integer)
     for (b,a) in zip(bases,ampls)
         signal2 += real(a*(b.^(0:N-1)))
     end
-    @test all(abs.(signal2-signal) .< 1e-6*minimum(abs(ampls)))
+    @test all(abs.(signal2-signal) .< 1e-6*minimum(abs.(ampls)))
 
     # Now add a tiny bit of noise, fit exponentials and see what happens.
     # Rather than testing the fit, test the model that it generates.

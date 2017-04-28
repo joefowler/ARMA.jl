@@ -102,8 +102,8 @@ function ARMASolver(m::ARMAModel, N::Integer)
     # Find the nontrivial sparse elements of this lower-triangular banded matrix
     # LL, then construct with zero values, then fill them.
     Ndata = N*Nbands - div(Nbands*(Nbands-1),2)
-    rows = Array(Int, Ndata)
-    cols = Array(Int, Ndata)
+    rows = Array{Int}(Ndata)
+    cols = Array{Int}(Ndata)
     vals = zeros(Float64, Ndata)
     i = 1
     for r=1:min(N)

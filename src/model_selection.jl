@@ -209,7 +209,7 @@ for more.
 Returns `B`, the possibly complex roots."""
 
 function C2B{T<:Real}(C::AbstractVector{T})
-    B = zeros(Complex{eltype(C)}, C)
+    B = zeros(Complex{eltype(C)}, length(C))
     const n = length(C)
     iscomplex = false
     for i = 1:2:n-1
