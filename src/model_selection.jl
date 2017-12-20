@@ -19,11 +19,11 @@ function padded_length(N::Integer)
 end
 
 
-"""`estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)`
+"""
+    estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)
 
-`estimate_covariance` takes a noise sequences (as a 1D vector
-or as columns of a 2D matrix) and estimates the sample-sample covariance
-vector from these.
+Take a noise sequence (as a 1D vector or as columns of a 2D matrix) and
+estimate the sample-sample covariance vector from these.
 
 `nsamp` and `chunklength` are both optional arguments.
 
@@ -76,7 +76,8 @@ end
 
 
 
-"""`main_exponentials(data, nexp; minexp=nothing)`
+"""
+    main_exponentials(data, nexp; minexp=nothing)
 
 Find the `nexp` "main exponentials" in the time stream `data`.
 
@@ -141,7 +142,8 @@ function main_exponentials(data::Vector, nexp::Int; minexp=nothing)
 end
 
 
-"""`sortbases!(b)`
+"""
+    sortbases!(b)
 
 Re-order the elements of `b` in place, such that for every pair b[1],b[2] and so
 on, either both are real, or they are complex conjugates of one another.
@@ -149,7 +151,8 @@ Elements of `b` with negative imaginary parts are simply assumed to be
 conjugates of those with positive imaginary parts. The complex pairs will come
 first, followed by the real elements.
 
-Returns the sorted `b`."""
+Returns the sorted `b`.
+"""
 
 function sortbases!(b::Vector)
     real_ones = real(b[imag(b) .== 0])
@@ -171,7 +174,8 @@ function sortbases!(b::Vector)
 end
 
 
-"""`B2C(B)`
+"""
+    B2C(B)
 
 Converts an array `B` of exponential bases to the coefficients of the set of
 monic quadratic polynomials.
@@ -184,7 +188,8 @@ If `B` violates these assumptions, then the computed `C` will make no sense.
 
 Returns `C` such that B[1:2] are the roots of x^2+C[1]*X+C[2], and similarly for
 [3:4] and all other pairs. If length(B) is odd, then B[end] is the root of x+C[end],
-thus `-1 = B[end]*C[end]`."""
+thus `-1 = B[end]*C[end]`.
+"""
 
 function B2C{T<:Number}(B::AbstractVector{T})
     C = zeros(Float64, length(B))
@@ -201,12 +206,14 @@ end
 
 
 
-"""`C2B(C)`
+"""
+    C2B(C)
 
 Converts a real array of polynomial coefficients `C` to their roots. See `B2C(B)`
 for more.
 
-Returns `B`, the possibly complex roots."""
+Returns `B`, the possibly complex roots.
+"""
 
 function C2B{T<:Real}(C::AbstractVector{T})
     B = zeros(Complex{eltype(C)}, length(C))
@@ -235,7 +242,8 @@ end
 
 
 
-"""`findA(t, r, B, [w=weights])`
+"""
+    findA(t, r, B, [w=weights])
 
 Compute the amplitudes `A` for a linear model of the form
 
@@ -248,7 +256,8 @@ Sum_t [w_t (r_t - f(t))^2].
 This is a linear problem, given `B`. If `w` is not given, then equal weights on
 all data are assumed.
 
-Returns the array of amplitudes `A`."""
+Returns the array of amplitudes `A`.
+"""
 
 function findA{T<:Number}(t::AbstractVector, r::Vector, B::Vector{T}; w=nothing)
     @assert length(t) == length(r)
@@ -271,10 +280,12 @@ end
 
 
 
-"""`exponential_model(t, A, B)`
+"""
+    exponential_model(t, A, B)`
 
 Computes and returns the sum-of-exponentials model with amplitudes `A` and
-exponential bases `B` at time steps `t`."""
+exponential bases `B` at time steps `t`.
+"""
 
 function exponential_model(t::AbstractVector, A::Vector, B::Vector)
     r = zeros(Float64, length(t))
@@ -286,13 +297,18 @@ end
 
 
 
-"""`fit_exponentials(data; pmin=0, pmax=6, w=nothing, deltar=nothing, good_enough=0.0)`
+"""
+    fit_exponentials(data; pmin=0, pmax=6, w=nothing, deltar=nothing, good_enough=0.0)
 
 Fit the time series `data` (regularly sampled) as a sum of possibly complex
 exponentials numbering at least `pmin` and at most `pmax`. Uses
 `main_exponentials` to determine a starting guess for the exponential bases.
-Then a nonlinear fit is attempted, using NLopt with the :LD_MMA method.
+Then a nonlinear fit is attempted, using `NLopt` with the `:LD_MMA` method.
 
+Returns `A,B`, the amplitudes and exponential bases of the best-fit model. The
+length of either gives the order of the best-fit model.
+
+# Optional Arguments:
 The penalty function is a weighted sum-of-square-errors. If the optional
 argument `w` is given, it must be a vector of the same length as `data`, and
 then the penalty is the sum over all samples of `w[i]*(model[i]-data[i])^2`.
@@ -304,15 +320,14 @@ of the successive-differences from the last 1/4 of the samples in `data`, on the
 assumption that these are noise-dominated. If they aren't, then the caller must
 offer a better figure for `w` or `deltar`.
 
-If `good_enough` is assigned a positive value, and if any model order p<pmax
+If `pmin` < `pmax`, then models of more than one order will be tried, and the one
+with the lowest penalty function will be returned.
+
+If `good_enough` is assigned a positive value, and if any model order `p<pmax`
 produces a penalty function less than this value, then this function returns
 early with the lowest-order model that meets the criterion.
 
-Returns `A,B`, the amplitudes and exponential bases of the best-fit model. Their
-length gives the order of the best-fit model.
-
-If `pmin` < `pmax`, then models of more than one order will be tried, and the one
-with the lowest penalty function will be returned.
+See also: [`fitARMA`](@ref)
 """
 
 function fit_exponentials(data::Vector; pmin=0, pmax=6,
@@ -361,6 +376,21 @@ function fit_exponentials(data::Vector; pmin=0, pmax=6,
 end
 
 
+"""
+    fitARMA(covariance, p, q; kwargs)
+
+Fit an `ARMAModel` of order `(p,q)` or lower to the `covariance` data. The model
+order with the lowest cost function will be returned.
+
+# Optional Arguments
+- `pmin`: the minimum allowed ARMA order.
+- `w`: the vector of weights to apply to the data (default: nothing, meaning equal weights)
+- `deltar`: rms uncertainty on the covariance values.
+- `good_enough`: if given, then the lowest-order model with a cost function at least
+   this small will be used, rather than trying all orders up to `p`.
+
+See also: [`fit_exponentials`](@ref)
+"""
 function fitARMA(covariance::Vector, p::Int, q::Int;
     w=nothing, deltar=nothing, good_enough=0.0, pmin=0)
     nspecial = max(1+q-p, 0)
