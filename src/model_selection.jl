@@ -375,5 +375,5 @@ end
 # Absent further information, we find that q=p is a good choice most of the time,
 # so let that be a default. Also, if we need a maximum order, we can supply
 # the rather arbitrary guess of 6.
-fitARMA(covariance::Vector, p::Int; kwargs...) = fitARMA(covariance, p, p; kwargs)
-fitARMA(covariance::Vector; kwargs...) = fitARMA(covariance, 6; kwargs)
+fitARMA(covariance::Vector, p::Int; kwargs...) = fitARMA(covariance, p, p; kwargs...)
+fitARMA(covariance::Vector; kwargs...) = fitARMA(covariance, 6; kwargs...)
