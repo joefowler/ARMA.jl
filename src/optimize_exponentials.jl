@@ -15,8 +15,10 @@ type ExpFitBuffer
     B::Vector{Complex128}
     C::Vector{Float64}
     E::Vector{Complex128}
+    G::Matrix{Complex128}
     M::Matrix{Complex128}
     N::Matrix{Complex128}
+    Q::Matrix{Complex128}
     H::AbstractMatrix{Complex128}
     Bt::Matrix{Complex128}
     Θ::Matrix{Complex128}
@@ -34,6 +36,7 @@ type ExpFitBuffer
         C = zeros(Float64, p)
         B = zeros(Complex128, p)
         E = zeros(Complex128, p)
+        G = zeros(Complex128, p, p)
         M = zeros(Complex128, p, p)
         N = zeros(Complex128, p, p)
         Q = zeros(Complex128, p, p)
@@ -45,7 +48,7 @@ type ExpFitBuffer
         Bt = zeros(Complex128, Nt, p)
         Θ = zeros(Complex128, Nt, p)
 
-        new(p, Nt, 0, r, t, w, wt, wrt, A, B, C, E, M, N, H, Bt, Θ)
+        new(p, Nt, 0, r, t, w, wt, wrt, A, B, C, E, G, M, N, Q, H, Bt, Θ)
     end
 end
 
@@ -68,12 +71,11 @@ function ARMA_gradient{T<:Number}(grad::Vector, buffer::ExpFitBuffer, A::Vector{
         buffer.E[i] = dot(buffer.wt, buffer.Bt[:,i])/B[i]
     end
 
-    Q = copy(buffer.N)
     for i=1:p
-        Q[i,:] *= A[i]
+        buffer.Q[i,:] = A[i] * buffer.N[i,:]
     end
 
-    G = buffer.M \ (diagm(buffer.E-buffer.N*A)-Q)
+    buffer.G = pinv(buffer.M) * (diagm(buffer.E-buffer.N*A)-buffer.Q)
 
     H = buffer.H
     for i=1:2:p-1
@@ -87,7 +89,7 @@ function ARMA_gradient{T<:Number}(grad::Vector, buffer::ExpFitBuffer, A::Vector{
         H[end,end] = B[end]^2
     end
 
-    Jacobian = real((buffer.Θ + buffer.Bt*G)*buffer.H)
+    Jacobian = real((buffer.Θ + buffer.Bt*buffer.G)*buffer.H)
     grad[:] = 2*(Jacobian' * (buffer.w.*(fmodel-buffer.r)))
 end
 

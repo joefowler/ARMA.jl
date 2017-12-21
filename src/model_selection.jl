@@ -275,7 +275,8 @@ function findA{T<:Number}(t::AbstractVector, r::Vector, B::Vector{T}; w=nothing)
         D[i] = sum(wr .* B[i].^t)
     end
 
-    A = M \ D
+    # A = M\D is theoretically correct, but don't do this: can be ill-conditioned in certain cases
+    A = pinv(M) * D
 end
 
 
