@@ -63,8 +63,8 @@ function ARMA_gradient{T<:Number}(grad::Vector, buffer::ExpFitBuffer, A::Vector{
         buffer.Θ[:,i] = A[i]/B[i] * t .* buffer.Bt[:,i]
     end
 
-    buffer.M = buffer.Bt'*(buffer.w.*buffer.Bt)
-    buffer.N = buffer.Bt'*(buffer.wt.*buffer.Bt)
+    buffer.M[:,:] = buffer.Bt'*(buffer.w.*buffer.Bt)
+    buffer.N[:,:] = buffer.Bt'*(buffer.wt.*buffer.Bt)
     for i=1:p; buffer.N[i,:] /= B[i]; end
 
     for i=1:p
@@ -72,10 +72,12 @@ function ARMA_gradient{T<:Number}(grad::Vector, buffer::ExpFitBuffer, A::Vector{
     end
 
     for i=1:p
-        buffer.Q[i,:] = A[i] * buffer.N[i,:]
+        for j=1:p
+            buffer.Q[i,j] = A[i] * buffer.N[i,j]
+        end
     end
 
-    buffer.G = pinv(buffer.M) * (diagm(buffer.E-buffer.N*A)-buffer.Q)
+    buffer.G[:,:] = pinv(buffer.M) * (diagm(buffer.E-buffer.N*A)-buffer.Q)
 
     H = buffer.H
     for i=1:2:p-1
