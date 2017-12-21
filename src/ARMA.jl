@@ -1,6 +1,6 @@
 module ARMA
 
-using Polynomials, NLsolve
+using Polynomials, NLsolve, HDF5
 
 export
     estimate_covariance,
@@ -301,6 +301,55 @@ function ARMAModel(bases::AbstractVector, amplitudes::AbstractVector, covarIV::A
     ARMAModel(p,q,roots_,poles,thetacoef,phicoef,gamma[1:max(p,q+1)],bases,amplitudes)
 end
 
+
+"""
+    hdf5save(output, model::ARMAModel)
+
+Store the `model` to an HDF5 file.
+
+`output` may be an HDF5 file open for writing, an HDF5 group within such a file,
+or the file name of an HDF5 file which will be created.
+"""
+function hdf5save(output::HDF5.DataFile, model::ARMAModel)
+    const GROUPNAME = "ARMAModel"
+    if exists(output, GROUPNAME)
+        o_delete(output, GROUPNAME)
+    end
+    grp = g_create(output, GROUPNAME)
+    grp["thetacoef"] = model.thetacoef
+    grp["phicoef"] = model.phicoef
+    model
+end
+
+function hdf5save(filename::AbstractString, model::ARMAModel)
+    h5open(filename, "w") do f
+        hdf5save(f, model)
+    end
+end
+
+
+"""
+    model = hdf5load(input)
+
+Load and return an `ARMAModel` object from `input`. The argument `input` can be
+the "ARMAModel" group, the group that contains it, or the name of an HDF5 file
+(group "ARMAModel" would need to be at the root of the file).
+"""
+
+function hdf5load(input::HDF5.DataFile)
+    if exists(input, "ARMAModel")
+        return hdf5load(input["ARMAModel"])
+    end
+    theta = input["thetacoef"][:]
+    phi = input["phicoef"][:]
+    ARMAModel(theta, phi)
+end
+
+function hdf5load(filename::AbstractString)
+    h5open(filename, "r") do f
+        return hdf5load(f)
+    end
+end
 
 
 """
