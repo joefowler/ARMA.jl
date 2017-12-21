@@ -21,15 +21,10 @@ type ExpFitBuffer
     Bt::Matrix{Complex128}
     Θ::Matrix{Complex128}
 
-    function ExpFitBuffer(r::Vector, t::AbstractVector, p::Integer; w=nothing)
+    function ExpFitBuffer(r::Vector, t::AbstractVector, p::Integer, w::Vector)
         const Nt = length(r)
         @assert Nt == length(t)
 
-        if w == nothing
-            w = ones(Float64, Nt)
-        else
-            w = copy(w)
-        end
         r = copy(r)
         t = copy(t)
         wt = w.*t
@@ -41,6 +36,7 @@ type ExpFitBuffer
         E = zeros(Complex128, p)
         M = zeros(Complex128, p, p)
         N = zeros(Complex128, p, p)
+        Q = zeros(Complex128, p, p)
         if p == 1
             H = zeros(Complex128, p, p)
         else
@@ -118,21 +114,27 @@ function optimize_exponentials(data::Vector, w::Vector, guessC::Vector)
     end
 
     opt = Opt(:LD_MMA, p)
-    ftol_abs!(opt, 1e-4)
-    ftol_rel!(opt, 1e-6)
-    maxeval!(opt, 1000)
-    stopval!(opt, 1e-6)
+    const N = length(data)
+    xtol_rel!(opt, 1e-6)
+    ftol_rel!(opt, 1e-5)
+    maxeval!(opt, 150p)
 
-    # Constraint bounds
-    lb = zeros(guessC)-Inf
-    ub = zeros(guessC)+Inf
+    # Constraint bounds on the quadratic representation of the bases.
+    # As all bases are in the unit circle, the linear coefficients are in (-2,2)
+    # and the quadratic ones are in (-1,1).
+    lb = zeros(guessC)-2
+    ub = zeros(guessC)+2
     lb[2:2:end] = -1
     ub[2:2:end] = +1
+    if p%2 == 1
+        lb[end] = -Inf
+        ub[end] = +Inf
+    end
     lower_bounds!(opt, lb)
     upper_bounds!(opt, ub)
 
     t = 0:length(data)-1
-    buffer = ExpFitBuffer(data, t, p, w=w)
+    buffer = ExpFitBuffer(data, t, p, w)
     minf = ARMA_objective(guessC, [], buffer)
     # println("Before opt: $minf at $guessC")
     min_objective!(opt, (x,grad)->ARMA_objective(x, grad, buffer))

@@ -330,8 +330,8 @@ early with the lowest-order model that meets the criterion.
 See also: [`fitARMA`](@ref)
 """
 
-function fit_exponentials(data::Vector; pmin=0, pmax=6,
-    w=nothing, deltar=nothing, good_enough=0.0)
+function fit_exponentials(data::Vector; pmin::Int=0, pmax::Int=6,
+    w=nothing, deltar=nothing, good_enough::Float64=0.0)
 
     guess_exponentials = main_exponentials(data, pmax, minexp=pmin)
 
@@ -392,7 +392,7 @@ order with the lowest cost function will be returned.
 See also: [`fit_exponentials`](@ref)
 """
 function fitARMA(covariance::Vector, p::Int, q::Int;
-    w=nothing, deltar=nothing, good_enough=0.0, pmin=0)
+    w=nothing, deltar=nothing, good_enough::Float64=0.0, pmin::Int=0)
     nspecial = max(1+q-p, 0)
     amplitudes, bases = fit_exponentials(covariance[1+nspecial:end], pmin=pmin, pmax=p,
         w=w, deltar=deltar, good_enough=good_enough)
