@@ -2,7 +2,7 @@ using ARMA, Polynomials
 using Base.Test
 
 # 1) Test padded_length: rounds up to convenient size for FFT
-function test1_padded_length()
+@testset "padded_length" begin
     @test ARMA.padded_length(1000) == 1024
     @test ARMA.padded_length(16) == 16
     @test ARMA.padded_length(12) == 16
@@ -17,7 +17,7 @@ function test1_padded_length()
 end
 
 # 2) Test estimate_covariance
-function test2_estimate_covariance()
+@testset "estimate_covariance" begin
     @test estimate_covariance([0,2,0,-2]) == [2.0, 0.0, -2.0, 0.0]
     u = randn(2+2^13)
     r = u[3:end] + u[1:end-2] + 2*u[2:end-1]
@@ -34,7 +34,6 @@ function test2_estimate_covariance()
 end
 
 # 3) Basic tests of ARMAModel constructors
-
 function similar_list(a::Vector, b::Vector, eps)
     @assert length(a) == length(b)
     for a1 in a
@@ -50,7 +49,7 @@ function similar_list(a::Vector, b::Vector, eps)
     true
 end
 
-function test3_ARMA_representations()
+@testset "ARMA_constructors" "Basic tests of ARMAModel constructors" begin
     p,q = 3,3
     rs = 1+(randn(q) .^ 2)
     ps = 1+(randn(p) .^ 2)
@@ -68,7 +67,7 @@ end
 # 4) Now complete tests of several models that have been worked out carefully
 # on paper, as well as several that are randomly created.
 
-function test4_ARMA_representations()
+@testset "ARMA_representations" begin
     # Generate 6 models of fixed parameters and order (2,0), (0,2), (1,1), (1,2), (2,1), (2,2)
     thetas=Dict('A'=>[2], 'B'=>[2,2.6,.8], 'C'=>[2,1.6], 'D'=>[2,2.6,.8], 'E'=>[2,1.6], 'F'=>[2,2.6,.8])
     phis = Dict('A'=>[1,-.3,-.4], 'B'=>[1], 'C'=>[1,-.8], 'D'=>[1,-.8], 'E'=>[1,-.3,-.4], 'F'=>[1,-.3,-.4])
@@ -295,7 +294,7 @@ function test_sum_exp(ampls::Vector, bases::Vector, N::Integer)
     @test all(abs.(cmodel-signal) .< 50noise_level)
 end
 
-function test5_exponential_fits()
+@testset "exponential_fits" begin
     ampls=[5.0,4,3-1im,3+1im]
     bases=[.999,.98,.7+.1im,.7-.1im]
     test_sum_exp(ampls, bases, 400)
@@ -310,7 +309,7 @@ function test5_exponential_fits()
 end
 
 # 6) Test toeplitz_whiten and toeplitz_whiten! with an ARMA(2,2) and 5 random vectors
-function test6_toeplitz_whiten()
+@testset "toeplitz_whiten" begin
     r=[3,-3]
     poles = [1.25,-2]
     model = ARMAModel(r, poles, 10.0)
@@ -339,7 +338,7 @@ arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .<
 
 
 # 7) Test internals used by whiten, unwhiten, solve_covariance, mult_covariance
-function test7_whiten_internals()
+@testset "whiten" begin
     for i=1:5
         N = 50
         v = randn(N)
@@ -354,10 +353,8 @@ function test7_whiten_internals()
         @test arrays_similar( ARMA.convolve_same(v, [1, -.3, -.4]), vy)
         @test arrays_similar( ARMA.deconvolve_same(vy, [1, -.3, -.4]), v)
     end
-end
 
 # 8) Test whiten, unwhiten, solve_covariance, mult_covariance
-function test8_whiten()
     model23 = ARMAModel([1.2,1.1,1.02], [1.25, -2], 10)
     model32 = ARMAModel([1.25,-2], [1.2,1.1,1.02], 10)
     model52 = ARMAModel([1.25,-2], [6,2.5,1.2,1.1,1.02], 10)
@@ -392,14 +389,4 @@ function test8_whiten()
     end
 end
 
-
-
-test1_padded_length()
-test2_estimate_covariance()
-test3_ARMA_representations()
-test4_ARMA_representations() # Slow test: comment it out when testing other parts often.
-test5_exponential_fits()
-test6_toeplitz_whiten()
-test7_whiten_internals()
-test8_whiten()
-# testBandedLT()
+include("hdf5test.jl")
