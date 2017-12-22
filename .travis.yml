@@ -11,7 +11,11 @@ notifications:
 addons:
   apt:
     packages:
+    - hdf5-tools
     - libnlopt0
+
+# To build on trusty, need this (see https://github.com/JuliaIO/HDF5.jl/issues/446)
+sudo: required
 
 # uncomment the following lines to override the default test script
 #script:
