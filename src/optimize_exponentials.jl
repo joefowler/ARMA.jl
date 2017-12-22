@@ -142,7 +142,12 @@ function optimize_exponentials(data::Vector, w::Vector, guessC::Vector)
     minf = ARMA_objective(guessC, [], buffer)
     # println("Before opt: $minf at $guessC")
     min_objective!(opt, (x,grad)->ARMA_objective(x, grad, buffer))
-    (minf,minx,ret) = optimize(opt, guessC)
-    # println("After opt: $minf at $minx after $(buffer.Neval) iterations (returned $ret)")
-    minf, minx
+    try
+        (minf,minx,ret) = optimize(opt, guessC)
+        # println("After opt: $minf at $minx after $(buffer.Neval) iterations (returned $ret)")
+        return minf, minx
+    catch e
+        @printf("Error in %d-order fit: %s\n", p, e)
+        return minf, guessC
+    end
 end
