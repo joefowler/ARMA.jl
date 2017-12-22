@@ -277,6 +277,7 @@ function findA{T<:Number}(t::AbstractVector, r::Vector, B::Vector{T}; w=nothing)
 
     # A = M\D is theoretically correct, but don't do this: can be ill-conditioned in certain cases
     A = pinv(M) * D
+    # A = M \ D
 end
 
 
@@ -297,6 +298,24 @@ function exponential_model(t::AbstractVector, A::Vector, B::Vector)
 end
 
 
+"""
+    squashgrowingexp!(bases::Vector, epsfrom1)
+
+Replace any growing exponentials, that is, where  `abs(bases[j]) >= 1`, with
+random decaying exponentials. These will be between `1-epsfrom1` and 1 in absolute
+value (suggest `epsfrom1 <= 0.01`).
+"""
+function squashgrowingexp!(bases::Vector, epsfrom1::Float64)
+    lastscale = 1 - 0.5*epsfrom1
+    for (i,b) = enumerate(bases)
+        if abs(b) >= 1 - 0.01*epsfrom1
+            if i%2==1 || imag(b) == 0.0
+                lastscale = (1-rand(1)[1]*epsfrom1) / abs(b)
+            end
+            bases[i] *= lastscale
+        end
+    end
+end
 
 """
     fit_exponentials(data; pmin=0, pmax=6, w=nothing, deltar=nothing, good_enough=0.0)
@@ -350,8 +369,9 @@ function fit_exponentials(data::Vector; pmin::Int=0, pmax::Int=6,
 
     best_cost = +Inf
     best_fit = nothing
-    for (guess,p) = zip(guess_exponentials, pmin:pmax)
-        guessC = B2C(guess)
+    for (guessB, p) = zip(guess_exponentials, pmin:pmax)
+        squashgrowingexp!(guessB, 0.25/N)
+        guessC = B2C(guessB)
         cost, fitC = optimize_exponentials(data, w, guessC)
         if (cost < best_cost)
             best_cost = cost
@@ -364,12 +384,7 @@ function fit_exponentials(data::Vector; pmin::Int=0, pmax::Int=6,
     end
 
     bestB = C2B(best_fit)
-    # Force |bases| < 1. Use random choice, in case more than one is like this.
-    for i = 1:length(bestB)
-        if abs2(bestB[i]) >= 1
-            bestB[i] = (1-rand(1)[1]/4N)
-        end
-    end
+    squashgrowingexp!(bestB, 0.25/N)
 
     t = 0:(length(data)-1)
     bestA = findA(t, data, bestB, w=w)
