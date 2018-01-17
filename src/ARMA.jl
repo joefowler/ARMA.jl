@@ -316,8 +316,11 @@ function hdf5save(output::HDF5.DataFile, model::ARMAModel)
         o_delete(output, GROUPNAME)
     end
     grp = g_create(output, GROUPNAME)
-    grp["thetacoef"] = model.thetacoef
-    grp["phicoef"] = model.phicoef
+    grp["basesR"] = real(model.expbases)
+    grp["basesI"] = imag(model.expbases)
+    grp["amplitudesR"] = real(model.expampls)
+    grp["amplitudesI"] = imag(model.expampls)
+    grp["covarIV"] = model.covarIV[1:max(model.p, model.q+1)-model.p]
     model
 end
 
@@ -340,9 +343,11 @@ function hdf5load(input::HDF5.DataFile)
     if exists(input, "ARMAModel")
         return hdf5load(input["ARMAModel"])
     end
-    theta = input["thetacoef"][:]
-    phi = input["phicoef"][:]
-    ARMAModel(theta, phi)
+    bases = input["basesR"][:] + 1im*input["basesI"][:]
+    ampls = input["amplitudesR"][:] + 1im*input["amplitudesI"][:]
+    covarIV = input["covarIV"][:]
+
+    ARMAModel(bases, ampls, covarIV)
 end
 
 function hdf5load(filename::AbstractString)

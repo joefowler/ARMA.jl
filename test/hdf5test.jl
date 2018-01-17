@@ -35,9 +35,7 @@ end
             compare(model, model2)
         end
     end
-end #testset
 
-@testset "hdf5 save/load complex" begin
     # These specific bases/amplitudes gave me problems before
     bases = [0.4501949250518989 - 0.8928250258588964im, 0, .6922098389057583, 0.9713167531173473, 0.9834786370247353]
     bases[2] = conj(bases[1])
