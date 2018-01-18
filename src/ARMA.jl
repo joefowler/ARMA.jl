@@ -186,6 +186,7 @@ function ARMAModel(thetacoef::Vector, phicoef::Vector)
     ARMAModel(p,q,roots_,poles,theta,phi,covarIV,expbases,expampls)
 end
 
+WhiteModel() = ARMAModel([1.0], [1.0])
 
 "Form the coefficients of a polynomial from the given roots `r`.
 It is assumed that the coefficients are real, so only the real part is kept.
