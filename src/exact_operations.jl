@@ -151,7 +151,7 @@ return `w=L\\v`, where `L` is the lower Cholesky factor of the covariance
 matrix. If `v` has expectation zero, then  the expected value of `w*w'` over
 noise realizations is the identity matrix.
 
-In place of `v`, a matrix can be used. Its columns whill be whitened.
+In place of `v`, a matrix can be used. Its columns will be whitened.
 """
 
 function whiten(solver::ARMASolver, v::AbstractVector)

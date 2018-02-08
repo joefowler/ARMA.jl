@@ -277,7 +277,6 @@ function findA{T<:Number}(t::AbstractVector, r::Vector, B::Vector{T}; w=nothing)
 
     # A = M\D is theoretically correct, but don't do this: can be ill-conditioned in certain cases
     A = pinv(M) * D
-    # A = M \ D
 end
 
 

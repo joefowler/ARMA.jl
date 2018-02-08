@@ -98,7 +98,6 @@ end
 
 function ARMA_objective(C::Vector, grad::Vector, buffer::ExpFitBuffer)
     const p = length(C)
-    @assert p == buffer.p
     B = C2B(C)
     A = findA(buffer.t, buffer.r, B, w=buffer.w)
     fmodel = exponential_model(buffer.t, A, B)
@@ -118,10 +117,10 @@ function optimize_exponentials(data::Vector, w::Vector, guessC::Vector)
     end
 
     opt = Opt(:LD_MMA, p)
-    const N = length(data)
-    xtol_rel!(opt, 1e-6)
+    opt = Opt(:LN_BOBYQA, p)
+    xtol_abs!(opt, 1e-6)
     ftol_rel!(opt, 1e-5)
-    maxeval!(opt, 150p)
+    maxeval!(opt, 100p)
 
     # Constraint bounds on the quadratic representation of the bases.
     # As all bases are in the unit circle, the linear coefficients are in (-2,2)
@@ -136,18 +135,24 @@ function optimize_exponentials(data::Vector, w::Vector, guessC::Vector)
     end
     lower_bounds!(opt, lb)
     upper_bounds!(opt, ub)
+    step = 0.1*(ub-lb)
+    if step[end] > 1
+        step[end] = guessC[end]*0.5
+    end
+    initial_step!(opt, step)
 
     t = 0:length(data)-1
     buffer = ExpFitBuffer(data, t, p, w)
-    minf = ARMA_objective(guessC, [], buffer)
-    # println("Before opt: $minf at $guessC")
     min_objective!(opt, (x,grad)->ARMA_objective(x, grad, buffer))
+    minf1 = ARMA_objective(guessC, [], buffer)
+    # println("Before opt: $minf1 at $guessC")
     try
         (minf,minx,ret) = optimize(opt, guessC)
         # println("After opt: $minf at $minx after $(buffer.Neval) iterations (returned $ret)")
+        # println("Moved by $(minx-guessC), improved by $(minf1-minf)\n")
         return minf, minx
     catch e
         @printf("Error in %d-order fit: %s\n", p, e)
-        return minf, guessC
+        return minf1, guessC
     end
 end
