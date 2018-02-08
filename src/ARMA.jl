@@ -129,20 +129,17 @@ function _covar_repr(thetacoef::Vector, phicoef::Vector)
     p = length(poles)
     n = max(p,q)
 
-    # Find the initial, exceptional values
+    # Find the initial, exceptional values.
+
+    # psi comes from Brockwell 3.3.3 or delta in Pollock 17.87.
     phi = zeros(Float64, n+1)
     phi[1:p+1] = phicoef
-    P = zeros(Float64, n+1, n+1)
-    for r=1:n+1
-        for c=1:r
-            P[r,c] = phi[r-c+1]
-        end
-    end
+    P = toeplitz(phi, zeros(Float64, n+1)) # lower-triangular toeplitz
     theta = zeros(Float64, n+1)
     theta[1:q+1] = thetacoef
     psi = P \ theta
 
-    T = zeros(Float64, n+1, n+1)
+    T = zeros(Float64, n+1, n+1) # A Hankel matrix containing theta in first col.
     for r=1:n+1
         for c=1:n+2-r
             T[r,c] = theta[c+r-1]
@@ -156,24 +153,28 @@ function _covar_repr(thetacoef::Vector, phicoef::Vector)
             P2[r,c] += phi[i]
         end
     end
-
     gamma = P2 \ (T*psi)
+
+    # Work in the range where exceptional values no longer hold.
+    # XI[r,c] = expbases[c]^(r-1-lowestpower)
+    # lowestpower is chosen to make the top row be beyond the 1+q-p expectional values.
     XI = Array{Complex128}(p, p)
     lowestpower = p >= q ? 1 : 1+q-p
     for c=1:p
-        XI[1,c] = expbases[c] ^ lowestpower
-        for r=2:p
-            XI[r,c] = expbases[c] * XI[r-1,c]
-        end
+        XI[:,c] = expbases[c] .^ collect(lowestpower:p+lowestpower-1)
     end
-    expampls = XI \ model_covariance(gamma, phicoef, p+lowestpower)[end+1-p:end]
+    expampls = XI \ model_covariance(gamma, phicoef, p+lowestpower)[1+lowestpower:p+lowestpower]
     gamma, expbases, expampls
 end
 
 
 # Construct from theta and phi polynomial representation
 function ARMAModel(thetacoef::Vector, phicoef::Vector)
-    theta = thetacoef * phicoef[1] * sign(thetacoef[1])
+    # Normalize the input coefficient vectors
+    theta = thetacoef / phicoef[1]
+    if theta[1] < 0
+        theta = -theta
+    end
     phi = phicoef / phicoef[1]
     roots_ = roots(Poly(theta))
     poles = roots(Poly(phi))
@@ -190,20 +191,19 @@ WhiteModel() = ARMAModel([1.0], [1.0])
 
 "Form the coefficients of a polynomial from the given roots `r`.
 It is assumed that the coefficients are real, so only the real part is kept.
-The sign of the constant term is taken to be positive.
-The highest-order term has coefficient +1 or -1."
+The zero-order term (the first) has coefficient +1. Fails if 0 is a root."
 
 function polynomial_from_roots(r::AbstractVector)
     pr = prod(r)
     @assert abs(imag(pr)/real(pr)) < 1e-10
     coef = real(poly(r).a)
-    coef * sign(coef[1])
+    coef / coef[1]
 end
 
 
 # Construct from roots-and-poles representation. We also need the gamma_0 value
 # (the process variance) to set the scale of the model, as roots-and-poles omits this.
-function ARMAModel(roots_::AbstractVector, poles::AbstractVector, variance)
+function ARMAModel(roots_::AbstractVector, poles::AbstractVector, variance::Real)
     @assert all(abs2.(roots_) .> 1)
     @assert all(abs2.(poles) .> 1)
     # The product of the roots and the product of the poles needs to be real.
@@ -216,17 +216,15 @@ function ARMAModel(roots_::AbstractVector, poles::AbstractVector, variance)
 
     # Construct normalized MA and AR polynomials.
     # Note that we will NOT have the proper scale at first.
-    thetac = polynomial_from_roots(roots_)
-    phic = polynomial_from_roots(poles)
-    thetacoef = thetac / thetac[1]
-    phicoef = phic / phic[1]
+    thetacoef = polynomial_from_roots(roots_)
+    phicoef = polynomial_from_roots(poles)
 
     covarIV, expbases, expampls = _covar_repr(thetacoef, phicoef)
 
     # Now that we know the normalized model's covariance, rescale
     # theta, covariance, and the exponential amplitudes to correct it.
     scale = sqrt(variance / covarIV[1])
-    covarIV *= variance / covarIV[1]
+    covarIV .*= variance / covarIV[1]
     ARMAModel(p,q,roots_,poles,thetacoef*scale,phicoef,covarIV,expbases,expampls*scale)
 end
 
@@ -244,8 +242,8 @@ function ARMAModel(bases::AbstractVector, amplitudes::AbstractVector, covarIV::A
     const q = p-1+length(covarIV)
 
     # Find the covariance from lags 0 to p+q. Call it gamma
-    gamma = zeros(Float64, 1+p+q)
-    t = 0:p+q
+    gamma = zeros(Float64, 1+p+q+50)
+    t = 0:length(gamma)-1
     for i=1:p
         gamma += real(amplitudes[i] * (bases[i] .^ t))
     end
@@ -297,7 +295,7 @@ function ARMAModel(bases::AbstractVector, amplitudes::AbstractVector, covarIV::A
     # which we don't want. Our approach is just to see what the normalized theta
     # would give for gamma[1] and rescale.
     gammanorm,_,_ = _covar_repr(thetacoef,phicoef)
-    thetacoef *= sqrt(gamma[1]/gammanorm[1]) *  sign(thetacoef[1])
+    thetacoef .*= sqrt(gamma[1]/gammanorm[1])
 
     ARMAModel(p,q,roots_,poles,thetacoef,phicoef,gamma[1:max(p,q+1)],bases,amplitudes)
 end
@@ -399,9 +397,9 @@ Compute the ARMA model's model covariance function. Methods:
 2. `model_covariance(covarIV::Vector, phicoef::Vector, N::Int)`
 
 The first returns covariance of model `m` from lags 0 to `N-1`. The second
-returns the covariance given the initial exceptional values of -covariance
-`covarIV` and the coefficients `phicoef` of the Phi polynomial. -(From these
-coefficients, a recusion allows computation of covariance beyond -the initial
+returns the covariance given the initial exceptional values of covariance
+`covarIV` and the coefficients `phicoef` of the Phi polynomial. (From these
+coefficients, a recusion allows computation of covariance beyond the initial
 values.)
 """
 
@@ -409,10 +407,14 @@ function model_covariance(covarIV::AbstractVector, phicoef::AbstractVector, N::I
     if N < length(covarIV)
         return covarIV[1:N]
     end
+    @assert(length(covarIV) >= length(phicoef))
+    if phicoef[1] != 1.0
+        phicoef /= phicoef[1]
+    end
     covar = zeros(Float64, N)
     covar[1:length(covarIV)] = covarIV[1:end]
 
-    @assert phicoef[1] == 1.0
+    # Use Pollock eq 17.86
     for i = length(covarIV)+1:N
         for j = 1:length(phicoef)-1
             covar[i] -= phicoef[j+1] * covar[i-j]
