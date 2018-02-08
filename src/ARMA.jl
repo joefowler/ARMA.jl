@@ -229,6 +229,82 @@ function ARMAModel(roots_::AbstractVector, poles::AbstractVector, variance::Real
 end
 
 
+function solveGammaMA(gammaMA::AbstractVector; maxiter=1000)
+    # Solve the system gammaMA[i] = sum mu[j]*mu[j+i] for mu.
+    # Goal: find a root ; if we cannot, at least find the lowest-cost
+    # value of x (here, meaning the lowest mean absolute residual).
+
+    # Strategy is step 1: iterative estimation of mu.
+    # Step 2: full nonlinear solve for mu, if successful.
+
+    function f!(residual, x)
+        q = length(residual)-1
+        for t = 0:q
+            residual[t+1] = gammaMA[t+1]
+            for j = 0:q-t
+                residual[t+1] -= x[j+1]*x[j+t+1]
+            end
+        end
+        residual
+    end
+
+    function cost(x)
+        residual = zeros(x)
+        f!(residual, x)
+        mean(abs.(residual))
+    end
+
+    const n = length(gammaMA)
+    theta = zeros(Float64, n)
+    theta[1] = 1
+    var = gammaMA[1]
+    besttheta = copy(theta)
+    bestcost = Inf
+    consecincreases = 0
+
+    # Iterate until result gets worse 10 times in a row, the mean absolute deviation
+    # from gamma is less than gammaMA[1]/10^6, or we reach the iteration limit.
+    for iter = 1:maxiter
+        theta[n] = gammaMA[n]/var
+        for i=n-1:-1:2
+            theta[i] = gammaMA[i]/var - dot(theta[2:n+1-i], theta[1+i:n])
+        end
+        var = gammaMA[1]/sum(theta.^2)
+        c = cost(theta * sqrt(var))
+        if c < 1e-6*gammaMA[1]
+            besttheta[:] = theta[:]*sqrt(var)
+            # println("Basic iteration succeeds")
+            break
+        end
+        if c <= bestcost
+            bestcost = c
+            besttheta[:] = theta[:]*sqrt(var)
+        else
+            consecincreases += 1
+            if consecincreases >= 10
+                # println("10 consecutive increases as of iter = $(iter)")
+                break
+            end
+        end
+    end
+
+    # Step 2: try a full nonlinear solver. Ignore result if it's worse or errors.
+    try
+        resid = 0*theta
+        f!(resid, besttheta)
+        results = nlsolve(f!, besttheta, iterations=maxiter)
+        costnl = cost(results.zero)
+        if costnl < bestcost
+            # println("Solver succeeded: costnl=$(costnl) vs $(bestcost) ")
+            return results.zero
+        else
+            # println("Solver costnl=$(costnl) vs $(bestcost)")
+        end
+    catch e
+    end
+    return besttheta
+end
+
 # Construct ARMAModel from a sum-of-exponentials representation, along with
 # zero or more exceptional values of the initial covariance, covarIV.
 # It is allowed for covarIV==[], but it can't be optional,
@@ -251,33 +327,20 @@ function ARMAModel(bases::AbstractVector, amplitudes::AbstractVector, covarIV::A
 
     # Find the phi polynomial
     poles = 1.0 ./ bases
-    phic = polynomial_from_roots(poles)
-    phicoef = phic / phic[1]
+    phicoef = polynomial_from_roots(poles)
 
     # Find the nonlinear system of equations for the theta coefficients
-    LHS = zeros(Float64, 1+q)
+    gammaMA = zeros(Float64, 1+q)
     for t=0:q
         for i=1:p+1
             for j=1:p+1
-                LHS[t+1] += phicoef[i]*phicoef[j]*gamma[1+abs(t+i-j)]
+                gammaMA[t+1] += phicoef[i]*phicoef[j]*gamma[1+abs(t+i-j)]
             end
         end
     end
 
-    # Solve the system
-    function f!(x, residual)
-        q = length(residual)-1
-        for t = 0:q
-            residual[t+1] = LHS[t+1]
-            for j = 0:q-t
-                residual[t+1] -= x[j+1]*x[j+t+1]
-            end
-        end
-        residual
-    end
-    thetacoef = ones(Float64, q+1)
-    results = nlsolve(f!, thetacoef)
-    roots_ = roots(Poly(results.zero))
+    besttheta = solveGammaMA(gammaMA)
+    roots_ = roots(Poly(besttheta))
 
     # Now a clever trick: any roots r of the MA polynomial that are INSIDE
     # the unit circle can be replaced by 1/r and yield the same covariance.
