@@ -407,9 +407,9 @@ function model_covariance(covarIV::AbstractVector, phicoef::AbstractVector, N::I
     if N < length(covarIV)
         return covarIV[1:N]
     end
-    @assert(length(covarIV) >= length(phicoef))
+    @assert(length(covarIV) >= length(phicoef)-1)
     if phicoef[1] != 1.0
-        phicoef /= phicoef[1]
+        phicoef = phicoef/phicoef[1]
     end
     covar = zeros(Float64, N)
     covar[1:length(covarIV)] = covarIV[1:end]
@@ -423,7 +423,6 @@ function model_covariance(covarIV::AbstractVector, phicoef::AbstractVector, N::I
     covar
 end
 model_covariance(m::ARMAModel, N::Int) = model_covariance(m.covarIV, m.phicoef, N)
-
 
 
 """
