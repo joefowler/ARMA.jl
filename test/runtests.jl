@@ -1,6 +1,8 @@
 using ARMA, Polynomials
 using Base.Test
 
+@testset "ARMA" begin
+
 # 1) Test padded_length: rounds up to convenient size for FFT
 @testset "padded_length" begin
     @test ARMA.padded_length(1000) == 1024
@@ -49,7 +51,7 @@ function similar_list(a::Vector, b::Vector, eps)
     true
 end
 
-@testset "ARMA_constructors" "Basic tests of ARMAModel constructors" begin
+@testset "ARMA_constructors" begin
     p,q = 3,3
     rs = 1+(randn(q) .^ 2)
     ps = 1+(randn(p) .^ 2)
@@ -264,7 +266,7 @@ end
 # and an ARMA model of order (p, q=p)
 function test_sum_exp(ampls::Vector, bases::Vector, N::Integer)
 
-    # First, make sure that exponential_model does the right thing.
+    # First, make sure that ARMA.exponential_model does the right thing.
     t = 0:(N-1)
     signal = ARMA.exponential_model(t, ampls, bases)
     signal2 = zeros(signal)
@@ -280,18 +282,18 @@ function test_sum_exp(ampls::Vector, bases::Vector, N::Integer)
     NB = length(bases)
     afit, bfit = fit_exponentials(signal, pmin=NB, pmax=NB)
     cmodel = ARMA.exponential_model(t, afit, bfit)
-    @test all(abs.(cmodel-signal) .< 50noise_level)
+    @test all(abs.(cmodel-signal) .< .1*maximum(signal))
 
     # Now test the full fitARMA function, with 0 and then 1 exceptional value.
     p = length(bases)
     model = fitARMA(signal, p, p-1, deltar=noise_level, pmin=p-2)
     cmodel = model_covariance(model, N)
-    @test all(abs.(cmodel-signal) .< 50noise_level)
+    @test all(abs.(cmodel-signal) .< .1*maximum(signal))
 
     signal[1] *= 2
     model = fitARMA(signal, p, p, deltar=noise_level, pmin=p-2)
     cmodel = model_covariance(model, N)
-    @test all(abs.(cmodel-signal) .< 50noise_level)
+    @test all(abs.(cmodel-signal) .< .1*maximum(signal))
 end
 
 @testset "exponential_fits" begin
@@ -354,7 +356,7 @@ arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .<
         @test arrays_similar( ARMA.deconvolve_same(vy, [1, -.3, -.4]), v)
     end
 
-# 8) Test whiten, unwhiten, solve_covariance, mult_covariance
+    # Test whiten, unwhiten, solve_covariance, mult_covariance
     model23 = ARMAModel([1.2,1.1,1.02], [1.25, -2], 10)
     model32 = ARMAModel([1.25,-2], [1.2,1.1,1.02], 10)
     model52 = ARMAModel([1.25,-2], [6,2.5,1.2,1.1,1.02], 10)
@@ -390,3 +392,4 @@ arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .<
 end
 
 include("hdf5test.jl")
+end
