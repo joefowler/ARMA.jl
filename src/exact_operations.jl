@@ -195,7 +195,7 @@ end
 
 function unwhiten(solver::ARMASolver, M::AbstractMatrix)
     uws(v::AbstractVector) = unwhiten(solver, v)
-    mapslices(ws, M, 1)
+    mapslices(uws, M, 1)
 end
 
 
@@ -239,6 +239,11 @@ function mult_covariance(solver::ARMASolver, v::AbstractVector)
     deconvolve_same(x, solver.phicoef)
 end
 
+function mult_covariance(solver::ARMASolver, M::AbstractMatrix)
+    mc(v::AbstractVector) = mult_covariance(solver, v)
+    mapslices(mc, M, 1)
+end
+
 
 
 """
@@ -257,6 +262,11 @@ function solve_covariance(solver::ARMASolver, v::AbstractVector)
         v2 = transpose_solve(solver.LL, v1)
     end
     reverse(convolve_same(reverse(v2), solver.phicoef))
+end
+
+function solve_covariance(solver::ARMASolver, M::AbstractMatrix)
+    sc(v::AbstractVector) = solve_covariance(solver, v)
+    mapslices(sc, M, 1)
 end
 
 
