@@ -259,7 +259,7 @@ function solve_covariance(solver::ARMASolver, v::AbstractVector)
     if nv  < size(solver.LL)[1]
         v2 = solver.LL[1:nv,1:nv]' \ v1
     else
-        v2 = transpose_solve(solver.LL, v1)
+        v2 = solver.LL' \ v1
     end
     reverse(convolve_same(reverse(v2), solver.phicoef))
 end
