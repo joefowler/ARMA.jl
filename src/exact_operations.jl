@@ -11,7 +11,6 @@ as `b`, effectively padding `b` with `length(kernel)-1` initial zeros. This is
 equivalent to multiplying `b` by the banded lower triangular Toeplitz matrix
 whose first column begins with `kernel`.
 """
-
 function convolve_same(b::AbstractVector, kernel::AbstractVector)
     x = kernel[1] * Array(b)
     for i=2:length(kernel)
@@ -29,9 +28,8 @@ Reverse the effect of `convolve_same(b, kernel)`. That is, solve `Kx=b` for
 `x` where `K` is the banded lower triangular Toeplitz matrix whose first row
 begins with `kernel`.
 """
-
 function deconvolve_same(b::AbstractVector, kernel::AbstractVector)
-    const Nk, N = length(kernel), length(b)
+    Nk, N = length(kernel), length(b)
     lenrek = reverse(kernel[2:end])
     x = Array(b) / kernel[1]
     for i=2:min(Nk,N)
@@ -60,8 +58,7 @@ lower Cholesky factor):
 
 Note that the object is constructed with a maximum vector length `N`, so that
 these operations require `length(v) <= N` and `n <= N`."""
-
-type ARMASolver
+mutable struct ARMASolver
     p         ::Int
     q         ::Int
     phicoef   ::Vector{Float64}
@@ -87,8 +84,8 @@ end
 function ARMASolver(m::ARMAModel, N::Integer)
     covar = model_covariance(m, 1+m.p+2m.q)
     R_corner  = toeplitz(covar, covar)
-    const Nc = length(covar)
-    const Nbands = max(m.p, m.q+1)
+    Nc = length(covar)
+    Nbands = max(m.p, m.q+1)
     x = zeros(Float64, Nc)
     y = zeros(Float64, Nc)
     x[1:m.p+1] = m.phicoef
@@ -129,7 +126,7 @@ function ARMASolver(m::ARMAModel, N::Integer)
         end
     end
     for r = Nc+1:N
-        const mincol = r-m.q
+        mincol = r-m.q
         LL[r,mincol] = RR_toeplitz[1] / LL[mincol,mincol]
         for c=mincol+1:r-1
             LL[r,c] = (RR_toeplitz[c-r+Nbands] - dot(vec(LL[r,mincol:c-1]), vec(LL[c,mincol:c-1]))) / LL[c,c]
@@ -153,10 +150,9 @@ noise realizations is the identity matrix.
 
 In place of `v`, a matrix can be used. Its columns will be whitened.
 """
-
 function whiten(solver::ARMASolver, v::AbstractVector)
     Phiv = convolve_same(v, solver.phicoef)
-    const nv = length(v)
+    nv = length(v)
     if nv  < size(solver.LL)[1]
         return solver.LL[1:nv, 1:nv] \ Phiv
     end
@@ -182,9 +178,8 @@ ARMA model.
 
 In place of `v`, a matrix can be used. Its columns whill be unwhitened.
 """
-
 function unwhiten(solver::ARMASolver, w::AbstractVector)
-    const nw = length(w)
+    nw = length(w)
     if nw  < size(solver.LL)[1]
         x = solver.LL[1:nw, 1:nw] * w
     else
@@ -204,15 +199,14 @@ end
 
 Use `solver` for an ARMA model to multiply the vector `v` by the covariance matrix.
 """
-
 function mult_covariance(solver::ARMASolver, v::AbstractVector)
     # Reversing before and after deconvolve ensures that we are solving Phi', not Phi.
     v1 = reverse(deconvolve_same(reverse(v), solver.phicoef))
 
     # Multiply by RR, the "moving-average-only R matrix".
-    const Nv = length(v1)
-    const Nu1,Nu2 = size(solver.RRu)
-    const q = solver.q
+    Nv = length(v1)
+    Nu1,Nu2 = size(solver.RRu)
+    q = solver.q
     if Nv > Nu2
         x = similar(v1)
         x[1:Nu1] = solver.RRu * v1[1:Nu2]
@@ -252,9 +246,8 @@ end
 Use `solver` for an ARMA model to solve `Rx=v` where `R` is the noise covariance
 matrix.
 """
-
 function solve_covariance(solver::ARMASolver, v::AbstractVector)
-    const nv = length(v)
+    nv = length(v)
     v1 = whiten(solver, v)
     if nv  < size(solver.LL)[1]
         v2 = solver.LL[1:nv,1:nv]' \ v1
@@ -277,7 +270,6 @@ end
 Use `solver` for an ARMA model to compute the inverse noise covariance matrix,
 to size `[N,N]`.
 """
-
 function inverse_covariance(solver::ARMASolver, N::Integer)
     M = eye(N)
     hcat([solve_covariance(solver, M[:,i]) for i=1:N]...)

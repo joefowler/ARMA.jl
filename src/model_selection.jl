@@ -39,11 +39,10 @@ at the cost of losing a small amount of correlation between values in successive
 chunks. The recommended value for long data sets is to let chunklength be at
 least 10-20x nsamp.
 """
-
 estimate_covariance(timeseries::AbstractVector) = estimate_covariance(timeseries, length(timeseries))
 
 function estimate_covariance(timeseries::AbstractVector, nsamp::Int)
-    const N = length(timeseries)
+    N = length(timeseries)
     ideal_chunksize = 15*nsamp
     nchunks = div(N-1+ideal_chunksize, ideal_chunksize)
     chunklength = div(N, nchunks)
@@ -51,7 +50,7 @@ function estimate_covariance(timeseries::AbstractVector, nsamp::Int)
 end
 
 function estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)
-    const N = length(timeseries)
+    N = length(timeseries)
     if nsamp > N
         error("Cannot compute $(nsamp) covariance values from a length-$N data.")
     end
@@ -108,9 +107,8 @@ TODO: we need a better heuristic for constructing H out of a sufficient number
 of segments from the data, without allowing it to get insanely large when `data`
 is very, very long.
 """
-
 function main_exponentials(data::Vector, nexp::Int; minexp=nothing)
-    const N = length(data)
+    N = length(data)
     if 2nexp > N
         error("Cannot compute $(nexp) exponentials from data with fewer than twice as many data values.")
     end
@@ -153,7 +151,6 @@ first, followed by the real elements.
 
 Returns the sorted `b`.
 """
-
 function sortbases!(b::Vector)
     real_ones = real(b[imag(b) .== 0])
     sort!(real_ones, rev=true)
@@ -190,10 +187,9 @@ Returns `C` such that B[1:2] are the roots of x^2+C[1]*X+C[2], and similarly for
 [3:4] and all other pairs. If length(B) is odd, then B[end] is the root of x+C[end],
 thus `-1 = B[end]*C[end]`.
 """
-
 function B2C{T<:Number}(B::AbstractVector{T})
     C = zeros(Float64, length(B))
-    const n = length(B)
+    n = length(B)
     for i=1:2:n-1
         C[i] = -real(B[i]+B[i+1])
         C[i+1] = real(B[i]*B[i+1])
@@ -214,16 +210,15 @@ for more.
 
 Returns `B`, the possibly complex roots.
 """
-
 function C2B{T<:Real}(C::AbstractVector{T})
     B = zeros(Complex{eltype(C)}, length(C))
-    const n = length(C)
+    n = length(C)
     iscomplex = false
     for i = 1:2:n-1
         x = -0.5C[i]
         disc = x*x-C[i+1]
         if disc >= 0
-            y::Complex128 = sqrt(disc)
+            y::ComplexF64 = sqrt(disc)
         else
             y = 1im*sqrt(-disc)
             iscomplex = true
@@ -258,14 +253,13 @@ all data are assumed.
 
 Returns the array of amplitudes `A`.
 """
-
 function findA{T<:Number}(t::AbstractVector, r::Vector, B::Vector{T}; w=nothing)
     @assert length(t) == length(r)
     if w==nothing
         w = ones(r)
     end
     wr = w.*r
-    const p = length(B)
+    p = length(B)
     M = zeros(T, p, p)
     D = zeros(T, p)
     for i=1:p
@@ -287,7 +281,6 @@ end
 Computes and returns the sum-of-exponentials model with amplitudes `A` and
 exponential bases `B` at time steps `t`.
 """
-
 function exponential_model(t::AbstractVector, A::Vector, B::Vector)
     r = zeros(Float64, length(t))
     for i=1:length(A)
@@ -348,13 +341,12 @@ early with the lowest-order model that meets the criterion.
 
 See also: [`fitARMA`](@ref)
 """
-
 function fit_exponentials(data::Vector; pmin::Int=0, pmax::Int=6,
     w=nothing, deltar=nothing, good_enough::Float64=0.0)
 
     guess_exponentials = main_exponentials(data, pmax, minexp=pmin)
 
-    const N = length(data)
+    N = length(data)
     if w == nothing
         # If deltar isn't given, use the heuristic that the std dev of the
         # diff of the last values in data estimates sqrt(2) times deltar.

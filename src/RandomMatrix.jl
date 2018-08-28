@@ -14,7 +14,6 @@ Find range of matrix `A` (with size m,n) using `num_lhs` random vectors and with
 
 Based on Halko Martinsson & Tropp Algorithm 4.3.
 """
-
 function find_range_randomly(A::AbstractMatrix, num_lhs::Integer, q=1)
     m,n = size(A)
     Omega = randn(n, num_lhs)
@@ -38,7 +37,6 @@ transpose of V). U and V will have only `num_lhs` columns, and similarly
 
 Based on Halko Martinsson & Tropp Algorithm 5.1.
 """
-
 function find_svd_randomly(A::AbstractMatrix, num_lhs::Integer, q=2)
     Q = find_range_randomly(A, num_lhs, q)
     B = Q' * A

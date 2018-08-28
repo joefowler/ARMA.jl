@@ -76,17 +76,16 @@ representations are computed and stored.
 See also: [`ARMASolver`](@ref) for fast mutliplies and solves of either the
 noise model covariance matrix or its Cholesky factor.
 """
-
-type ARMAModel
+mutable struct ARMAModel
     p         ::Int
     q         ::Int
-    roots_    ::Vector{Complex128}
-    poles     ::Vector{Complex128}
+    roots_    ::Vector{ComplexF64}
+    poles     ::Vector{ComplexF64}
     thetacoef ::Vector{Float64}
     phicoef   ::Vector{Float64}
     covarIV   ::Vector{Float64}
-    expbases  ::Vector{Complex128}
-    expampls  ::Vector{Complex128}
+    expbases  ::Vector{ComplexF64}
+    expampls  ::Vector{ComplexF64}
 
     function ARMAModel(p,q,roots_,poles,thetacoef,phicoef,covarIV,expbases,expampls)
         @assert p == length(poles)
@@ -120,7 +119,6 @@ end
 
 "Go from theta,phi polynomials to the sum-of-exponentials representation.
 Returns (covar_initial_values, exponential_bases, exponential_amplitudes)."
-
 function _covar_repr(thetacoef::Vector, phicoef::Vector)
     roots_ = roots(Poly(thetacoef))
     poles = roots(Poly(phicoef))
@@ -158,7 +156,7 @@ function _covar_repr(thetacoef::Vector, phicoef::Vector)
     # Work in the range where exceptional values no longer hold.
     # XI[r,c] = expbases[c]^(r-1-lowestpower)
     # lowestpower is chosen to make the top row be beyond the 1+q-p expectional values.
-    XI = Array{Complex128}(p, p)
+    XI = Array{ComplexF64}(p, p)
     lowestpower = p >= q ? 1 : 1+q-p
     for c=1:p
         XI[:,c] = expbases[c] .^ collect(lowestpower:p+lowestpower-1)
@@ -192,7 +190,6 @@ WhiteModel() = ARMAModel([1.0], [1.0])
 "Form the coefficients of a polynomial from the given roots `r`.
 It is assumed that the coefficients are real, so only the real part is kept.
 The zero-order term (the first) has coefficient +1. Fails if 0 is a root."
-
 function polynomial_from_roots(r::AbstractVector)
     pr = prod(r)
     @assert abs(imag(pr)/real(pr)) < 1e-10
@@ -254,7 +251,7 @@ function solveGammaMA(gammaMA::AbstractVector; maxiter=1000)
         mean(abs.(residual))
     end
 
-    const n = length(gammaMA)
+    n = length(gammaMA)
     theta = zeros(Float64, n)
     theta[1] = 1
     var = gammaMA[1]
@@ -313,9 +310,9 @@ end
 # and q=p-1+length(covarIV).
 
 function ARMAModel(bases::AbstractVector, amplitudes::AbstractVector, covarIV::AbstractVector)
-    const p = length(bases)
+    p = length(bases)
     @assert p == length(amplitudes)
-    const q = p-1+length(covarIV)
+    q = p-1+length(covarIV)
 
     # Find the covariance from lags 0 to p+q. Call it gamma
     gamma = zeros(Float64, 1+p+q+50)
@@ -373,7 +370,7 @@ Store the `model` to an HDF5 file.
 or the file name of an HDF5 file which will be created.
 """
 function hdf5save(output::HDF5.DataFile, model::ARMAModel)
-    const GROUPNAME = "ARMAModel"
+    GROUPNAME = "ARMAModel"
     if exists(output, GROUPNAME)
         o_delete(output, GROUPNAME)
     end
@@ -400,7 +397,6 @@ Load and return an `ARMAModel` object from `input`. The argument `input` can be
 the "ARMAModel" group, the group that contains it, or the name of an HDF5 file
 (group "ARMAModel" would need to be at the root of the file).
 """
-
 function hdf5load(input::HDF5.DataFile)
     if exists(input, "ARMAModel")
         return hdf5load(input["ARMAModel"])
@@ -424,7 +420,6 @@ end
 
 Generate a simulated noise timeseries of length `N` from an ARMAModel `m`.
 """
-
 function generate_noise(m::ARMAModel, N::Int)
     # eps = white N(0,1) noise; x = after MA process; z = after inverting AR
     eps = randn(N+m.q)
@@ -465,7 +460,6 @@ returns the covariance given the initial exceptional values of covariance
 coefficients, a recusion allows computation of covariance beyond the initial
 values.)
 """
-
 function model_covariance(covarIV::AbstractVector, phicoef::AbstractVector, N::Int)
     if N < length(covarIV)
         return covarIV[1:N]
@@ -500,7 +494,6 @@ The first returns PSD at the given frequencies `freq` (frequency 0.5 is the
 critical, or Nyquist, frequency). The second returns PSD at `N` equally-spaced
 frequencies from 0 to 0.5.
 """
-
 function model_psd(m::ARMAModel, freq::AbstractVector)
     z = exp.(-2im*pi *freq)
     numer = m.thetacoef[1]
@@ -533,7 +526,6 @@ No Toeplitz matrix has the ability to make the input exactly white,
 but for many purposes, the time-shift property is more valuable than
 that exact whitening.
 """
-
 function toeplitz_whiten(m::ARMAModel, timestream::AbstractVector)
     N = length(timestream)
     white = zeros(Float64, N)
@@ -582,7 +574,6 @@ end
 Return a toeplitz matrix `T` whose first column is given by `col1`. If `row1` is
 supplied, then row1[2:end] gives `T[1,2:end]`. Otherwise, `T` is symmetric.
 """
-
 function toeplitz(c::AbstractVector)
     N = length(c)
     t = Array{eltype(c)}(N,N)
