@@ -187,7 +187,7 @@ Returns `C` such that B[1:2] are the roots of x^2+C[1]*X+C[2], and similarly for
 [3:4] and all other pairs. If length(B) is odd, then B[end] is the root of x+C[end],
 thus `-1 = B[end]*C[end]`.
 """
-function B2C{T<:Number}(B::AbstractVector{T})
+function B2C(B::AbstractVector{T}) where {T<:Number}
     C = zeros(Float64, length(B))
     n = length(B)
     for i=1:2:n-1
@@ -210,7 +210,7 @@ for more.
 
 Returns `B`, the possibly complex roots.
 """
-function C2B{T<:Real}(C::AbstractVector{T})
+function C2B(C::AbstractVector{T}) where {T<:Real}
     B = zeros(Complex{eltype(C)}, length(C))
     n = length(C)
     iscomplex = false
@@ -253,7 +253,7 @@ all data are assumed.
 
 Returns the array of amplitudes `A`.
 """
-function findA{T<:Number}(t::AbstractVector, r::Vector, B::Vector{T}; w=nothing)
+function findA(t::AbstractVector, r::Vector, B::Vector{T}; w=nothing) where {T<:Number}
     @assert length(t) == length(r)
     if w==nothing
         w = ones(r)

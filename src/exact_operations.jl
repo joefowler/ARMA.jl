@@ -3,6 +3,8 @@
 # (lower) decomposition L, and for L'.
 #
 
+using SparseArrays
+
 """
     convolve_same(b, kernel)
 

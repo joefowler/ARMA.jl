@@ -1,4 +1,5 @@
 using NLopt
+using Printf
 
 mutable struct ExpFitBuffer
     p::Int
@@ -54,7 +55,8 @@ end
 
 
 
-function ARMA_gradient{T<:Number}(grad::Vector, buffer::ExpFitBuffer, A::Vector{T}, B::Vector{T}, fmodel::Vector)
+function ARMA_gradient(grad::Vector, buffer::ExpFitBuffer, A::Vector{T},
+    B::Vector{T}, fmodel::Vector) where {T<:Number}
     t = buffer.t
     p = buffer.p
 
@@ -81,7 +83,7 @@ function ARMA_gradient{T<:Number}(grad::Vector, buffer::ExpFitBuffer, A::Vector{
 
     H = buffer.H
     for i=1:2:p-1
-        ID = 1./(B[i]-B[i+1])
+        ID = 1.0/(B[i]-B[i+1])
         H[i,i] = -B[i]*ID
         H[i+1,i] = B[i+1]*ID
         H[i,i+1] = -ID
