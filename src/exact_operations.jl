@@ -3,6 +3,7 @@
 # (lower) decomposition L, and for L'.
 #
 
+using LinearAlgebra
 using SparseArrays
 
 """
@@ -88,14 +89,14 @@ function ARMASolver(m::ARMAModel, N::Integer)
     R_corner  = toeplitz(covar, covar)
     Nc = length(covar)
     Nbands = max(m.p, m.q+1)
-    x = zeros(Float64, Nc)
-    y = zeros(Float64, Nc)
+    x = fill(0.0, Nc)
+    y = fill(0.0, Nc)
     x[1:m.p+1] = m.phicoef
     y[1] = x[1]
     Phi = toeplitz(x, y)
     # Hermitian enforces exact symetry even after round-off error.
     RR_corner = Hermitian(Phi*R_corner*Phi')
-    RR_toeplitz = zeros(Float64, 2m.q+1)
+    RR_toeplitz = fill(0.0, 2m.q+1)
     RR_toeplitz[1:m.q+1] = RR_corner[end, end-m.q:end]
     RR_toeplitz[m.q+1:end] = RR_corner[end, end:-1:end-m.q]
     RR_rectcorner = RR_corner[1:max(m.p,Nbands-1), :]
@@ -106,9 +107,9 @@ function ARMASolver(m::ARMAModel, N::Integer)
     # Find the nontrivial sparse elements of this lower-triangular banded matrix
     # LL, then construct with zero values, then fill them.
     Ndata = N*Nbands - div(Nbands*(Nbands-1),2)
-    rows = Array{Int}(Ndata)
-    cols = Array{Int}(Ndata)
-    vals = zeros(Float64, Ndata)
+    rows = Array{Int}(undef, Ndata)
+    cols = Array{Int}(undef, Ndata)
+    vals = fill(0.0, Ndata)
     i = 1
     for r=1:min(N)
         for c=1+max(0,r-Nbands):r
@@ -121,7 +122,7 @@ function ARMASolver(m::ARMAModel, N::Integer)
     LL = sparse(rows, cols, vals, N, N)
 
     # Fill LL with its nontrivial values.
-    LL_corner = chol(RR_corner)'
+    LL_corner = cholesky(RR_corner).L
     for r=1:min(Nc,N)
         for c=1+max(0,r-Nbands):r
             LL[r,c] = LL_corner[r,c]
@@ -163,7 +164,7 @@ end
 
 function whiten(solver::ARMASolver, M::AbstractMatrix)
     ws(v::AbstractVector) = whiten(solver, v)
-    mapslices(ws, M, 1)
+    mapslices(ws, M, dims=1)
 end
 
 
@@ -192,7 +193,7 @@ end
 
 function unwhiten(solver::ARMASolver, M::AbstractMatrix)
     uws(v::AbstractVector) = unwhiten(solver, v)
-    mapslices(uws, M, 1)
+    mapslices(uws, M, dims=1)
 end
 
 
@@ -237,7 +238,7 @@ end
 
 function mult_covariance(solver::ARMASolver, M::AbstractMatrix)
     mc(v::AbstractVector) = mult_covariance(solver, v)
-    mapslices(mc, M, 1)
+    mapslices(mc, M, dims=1)
 end
 
 
@@ -261,7 +262,7 @@ end
 
 function solve_covariance(solver::ARMASolver, M::AbstractMatrix)
     sc(v::AbstractVector) = solve_covariance(solver, v)
-    mapslices(sc, M, 1)
+    mapslices(sc, M, dims=1)
 end
 
 
@@ -273,6 +274,6 @@ Use `solver` for an ARMA model to compute the inverse noise covariance matrix,
 to size `[N,N]`.
 """
 function inverse_covariance(solver::ARMASolver, N::Integer)
-    M = eye(N)
+    M = Matrix(1.0I, N, N)
     hcat([solve_covariance(solver, M[:,i]) for i=1:N]...)
 end

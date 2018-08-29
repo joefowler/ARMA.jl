@@ -1,6 +1,8 @@
 module ARMA
 
 using Polynomials, NLsolve, HDF5
+using LinearAlgebra
+using Statistics
 
 export
     estimate_covariance,
@@ -130,20 +132,20 @@ function _covar_repr(thetacoef::Vector, phicoef::Vector)
     # Find the initial, exceptional values.
 
     # psi comes from Brockwell 3.3.3 or delta in Pollock 17.87.
-    phi = zeros(Float64, n+1)
+    phi = fill(0.0, n+1)
     phi[1:p+1] = phicoef
-    P = toeplitz(phi, zeros(Float64, n+1)) # lower-triangular toeplitz
-    theta = zeros(Float64, n+1)
+    P = toeplitz(phi, fill(0.0, n+1)) # lower-triangular toeplitz
+    theta = fill(0.0, n+1)
     theta[1:q+1] = thetacoef
     psi = P \ theta
 
-    T = zeros(Float64, n+1, n+1) # A Hankel matrix containing theta in first col.
+    T = fill(0.0, n+1, n+1) # A Hankel matrix containing theta in first col.
     for r=1:n+1
         for c=1:n+2-r
             T[r,c] = theta[c+r-1]
         end
     end
-    P2 = zeros(Float64, n+1, n+1)
+    P2 = fill(0.0, n+1, n+1)
     for r=1:n+1
         for i=1:p+1
             c = r-i+1
@@ -156,7 +158,7 @@ function _covar_repr(thetacoef::Vector, phicoef::Vector)
     # Work in the range where exceptional values no longer hold.
     # XI[r,c] = expbases[c]^(r-1-lowestpower)
     # lowestpower is chosen to make the top row be beyond the 1+q-p expectional values.
-    XI = Array{ComplexF64}(p, p)
+    XI = Array{ComplexF64}(undef, p, p)
     lowestpower = p >= q ? 1 : 1+q-p
     for c=1:p
         XI[:,c] = expbases[c] .^ collect(lowestpower:p+lowestpower-1)
@@ -246,13 +248,13 @@ function solveGammaMA(gammaMA::AbstractVector; maxiter=1000)
     end
 
     function cost(x)
-        residual = zeros(x)
+        residual = fill(zero(eltype(x)), size(x))
         f!(residual, x)
         mean(abs.(residual))
     end
 
     n = length(gammaMA)
-    theta = zeros(Float64, n)
+    theta = fill(0.0, n)
     theta[1] = 1
     var = gammaMA[1]
     besttheta = copy(theta)
@@ -315,7 +317,7 @@ function ARMAModel(bases::AbstractVector, amplitudes::AbstractVector, covarIV::A
     q = p-1+length(covarIV)
 
     # Find the covariance from lags 0 to p+q. Call it gamma
-    gamma = zeros(Float64, 1+p+q+50)
+    gamma = fill(0.0, 1+p+q+50)
     t = 0:length(gamma)-1
     for i=1:p
         gamma += real(amplitudes[i] * (bases[i] .^ t))
@@ -327,7 +329,7 @@ function ARMAModel(bases::AbstractVector, amplitudes::AbstractVector, covarIV::A
     phicoef = polynomial_from_roots(poles)
 
     # Find the nonlinear system of equations for the theta coefficients
-    gammaMA = zeros(Float64, 1+q)
+    gammaMA = fill(0.0, 1+q)
     for t=0:q
         for i=1:p+1
             for j=1:p+1
@@ -424,8 +426,8 @@ function generate_noise(m::ARMAModel, N::Int)
     # eps = white N(0,1) noise; x = after MA process; z = after inverting AR
     eps = randn(N+m.q)
     eps[1:m.p] = 0
-    x = zeros(Float64, N)
-    z = zeros(Float64, N)
+    x = fill(0.0, N)
+    z = fill(0.0, N)
     for i=1:m.q+1
         x += eps[i:end+i-m.p-1] * m.thetacoef[i]
     end
@@ -468,7 +470,7 @@ function model_covariance(covarIV::AbstractVector, phicoef::AbstractVector, N::I
     if phicoef[1] != 1.0
         phicoef = phicoef/phicoef[1]
     end
-    covar = zeros(Float64, N)
+    covar = fill(0.0, N)
     covar[1:length(covarIV)] = covarIV[1:end]
 
     # Use Pollock eq 17.86
@@ -498,16 +500,16 @@ function model_psd(m::ARMAModel, freq::AbstractVector)
     z = exp.(-2im*pi *freq)
     numer = m.thetacoef[1]
     for i=1:m.q
-        numer += m.thetacoef[i+1] * (z.^i)
+        numer .+= m.thetacoef[i+1] * (z.^i)
     end
     denom = m.phicoef[1]
     for i=1:m.p
-        denom += m.phicoef[i+1] * (z.^i)
+        denom .+= m.phicoef[i+1] * (z.^i)
     end
     abs2.(numer ./ denom)
 end
 
-model_psd(m::ARMAModel, N::Int) = model_psd(m, collect(linspace(0, 0.5, N)))
+model_psd(m::ARMAModel, N::Int) = model_psd(m, collect(range(0, stop=0.5, length=N)))
 
 
 """
@@ -528,7 +530,7 @@ that exact whitening.
 """
 function toeplitz_whiten(m::ARMAModel, timestream::AbstractVector)
     N = length(timestream)
-    white = zeros(Float64, N)
+    white = fill(0.0, N)
 
     # First, multiply the input by the AR matrix (a banded Toeplitz
     # matrix with the phi coefficients on the diagonal and first p
@@ -576,7 +578,7 @@ supplied, then row1[2:end] gives `T[1,2:end]`. Otherwise, `T` is symmetric.
 """
 function toeplitz(c::AbstractVector)
     N = length(c)
-    t = Array{eltype(c)}(N,N)
+    t = Array{eltype(c)}(undef, N, N)
     for i=1:N
         for j=1:i
             t[i,j] = t[j,i] = c[1+i-j]
@@ -587,7 +589,7 @@ end
 
 function toeplitz(c::AbstractVector, r::AbstractVector)
     M,N = length(c), length(r)
-    t = Array{eltype(c)}(M,N)
+    t = Array{eltype(c)}(undef, M, N)
     for i=1:M
         for j=1:i
             t[i,j] = c[1+i-j]

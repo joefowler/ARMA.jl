@@ -1,3 +1,4 @@
+using LinearAlgebra
 using NLopt
 using Printf
 
@@ -33,21 +34,21 @@ mutable struct ExpFitBuffer
         wt = w.*t
         wrt = wt.*r
 
-        A = zeros(ComplexF64, p)
-        C = zeros(Float64, p)
-        B = zeros(ComplexF64, p)
-        E = zeros(ComplexF64, p)
-        G = zeros(ComplexF64, p, p)
-        M = zeros(ComplexF64, p, p)
-        N = zeros(ComplexF64, p, p)
-        Q = zeros(ComplexF64, p, p)
+        A = fill(0.0im, p)
+        C = fill(0.0, p)
+        B = fill(0.0im, p)
+        E = fill(0.0im, p)
+        G = fill(0.0im, p, p)
+        M = fill(0.0im, p, p)
+        N = fill(0.0im, p, p)
+        Q = fill(0.0im, p, p)
         if p == 1
-            H = zeros(ComplexF64, p, p)
+            H = fill(0.0im, p, p)
         else
             H = Tridiagonal(M)
         end
-        Bt = zeros(ComplexF64, Nt, p)
-        Θ = zeros(ComplexF64, Nt, p)
+        Bt = fill(0.0im, Nt, p)
+        Θ = fill(0.0im, Nt, p)
 
         new(p, Nt, 0, r, t, w, wt, wrt, A, B, C, E, G, M, N, Q, H, Bt, Θ)
     end
@@ -79,7 +80,7 @@ function ARMA_gradient(grad::Vector, buffer::ExpFitBuffer, A::Vector{T},
         end
     end
 
-    buffer.G[:,:] = pinv(buffer.M) * (diagm(buffer.E-buffer.N*A)-buffer.Q)
+    buffer.G[:,:] = pinv(buffer.M) * (Diagonal(buffer.E-buffer.N*A)-buffer.Q)
 
     H = buffer.H
     for i=1:2:p-1
@@ -127,10 +128,10 @@ function optimize_exponentials(data::Vector, w::Vector, guessC::Vector)
     # Constraint bounds on the quadratic representation of the bases.
     # As all bases are in the unit circle, the linear coefficients are in (-2,2)
     # and the quadratic ones are in (-1,1).
-    lb = zeros(guessC)-2
-    ub = zeros(guessC)+2
-    lb[2:2:end] = -1
-    ub[2:2:end] = +1
+    lb = fill(-2.0, size(guessC))
+    ub = fill(2.0, size(guessC))
+    lb[2:2:end] .= -1
+    ub[2:2:end] .= +1
     if p%2 == 1
         lb[end] = -Inf
         ub[end] = +Inf

@@ -1,7 +1,7 @@
 julia 0.7
 HDF5
+FFTW
 NLsolve
 NLopt
 Polynomials
 Printf
-SparseArrays

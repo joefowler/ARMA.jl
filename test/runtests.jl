@@ -1,5 +1,6 @@
 using ARMA, Polynomials
-using Base.Test
+using LinearAlgebra
+using Test
 
 @testset "ARMA" begin
 
@@ -39,12 +40,12 @@ end
 function similar_list(a::Vector, b::Vector, eps)
     @assert length(a) == length(b)
     for a1 in a
-        if all(abs2.(b - a1) .> eps^2)
+        if all(abs2.(b .- a1) .> eps^2)
             return false
         end
     end
     for b1 in b
-        if all(abs2.(a - b1) .> eps^2)
+        if all(abs2.(a .- b1) .> eps^2)
             return false
         end
     end
@@ -73,7 +74,7 @@ end
     # Generate 6 models of fixed parameters and order (2,0), (0,2), (1,1), (1,2), (2,1), (2,2)
     thetas=Dict('A'=>[2], 'B'=>[2,2.6,.8], 'C'=>[2,1.6], 'D'=>[2,2.6,.8], 'E'=>[2,1.6], 'F'=>[2,2.6,.8])
     phis = Dict('A'=>[1,-.3,-.4], 'B'=>[1], 'C'=>[1,-.8], 'D'=>[1,-.8], 'E'=>[1,-.3,-.4], 'F'=>[1,-.3,-.4])
-    const EPSILON = 2e-4
+    EPSILON = 2e-4
 
     # And generate 6 models of random order and random parameters
     for model in "GHIJKL"
@@ -123,8 +124,8 @@ end
             phcoef /= phcoef[1]
         end
         @assert phcoef[1] == 1.0
-        const p = length(phcoef)-1
-        const q = length(thcoef)-1
+        p = length(phcoef)-1
+        q = length(thcoef)-1
         # println("Testing model $model of order ARMA($p,$q).")
 
         m1 = ARMAModel(thcoef, phcoef)
@@ -138,7 +139,7 @@ end
         # See BD (3.3.3) for the q+1 initial equations and  (3.3.4) for the
         # homogeneous equations beyond the first q+1. Careful with the sign conventions,
         # b/c BD uses phi(z) = 1 - (phi1*z + phi2*z^2 + ...), while I prefer a + sign.
-        phpad = zeros(Float64, q+1)
+        phpad = fill(0.0, q+1)
         if q>p
             phpad[1:p+1] = phcoef
         else
@@ -158,16 +159,16 @@ end
         N = 1+max(p,q)
         phN = copy(phcoef)
         if q>p
-            append!(phN, zeros(Float64, q-p))
+            append!(phN, fill(0.0, q-p))
         end
-        A = zeros(Float64, N, N)
+        A = fill(0.0, N, N)
         for i=1:N
             for j=1:N
-                col = 1+abs.(j-i)
+                col = 1+abs(j-i)
                 A[i,col] += phN[j]
             end
         end
-        rhs3_3_8 = zeros(Float64, N)
+        rhs3_3_8 = fill(0.0, N)
         for k=1:q+1 # here j,k are both 1 larger than in BD 3.3.8.
             for j=k:q+1
                 rhs3_3_8[k] += thcoef[j]*psi[1+j-k]
@@ -178,11 +179,11 @@ end
         m2 = ARMAModel(roots_, poles, gamma[1])
 
         if q<p
-            covarIV=Float64[]
+            covarIV = Float64[]
         else
             covarIV = gamma[1:1+q-p]
         end
-        B = Array{Complex128}(p,p)
+        B = Array{ComplexF64}(p,p)
         for r=1:p
             for c=1:p
                 B[r,c] = expbases[c]^(N-p+r-1)
@@ -213,8 +214,8 @@ end
         c2 = model_covariance(m2, 100)
         c3 = model_covariance(m3, 100)
         c0 = c1[1]
-        @test all(abs.(c1-c2) .< EPSILON*c0)
-        @test all(abs.(c1-c3) .< EPSILON*c0)
+        @test all(abs.(c1 .- c2) .< EPSILON*c0)
+        @test all(abs.(c1 .- c3) .< EPSILON*c0)
 
         # C) Check that the initial covariances match
         # While this should be redundant with above test, let's just be sure
@@ -227,7 +228,7 @@ end
         # D) Check that the model rational function representation matches.
         if m1.q > 0
             maxcoef = maximum(abs.(m1.thetacoef))
-            @test all(abs.(m1.thetacoef.-m2.thetacoef) .< EPSILON*maxcoef)
+            @test all(abs.(m1.thetacoef .- m2.thetacoef) .< EPSILON*maxcoef)
             # At this point, the m3 theta polynomial is not at all guaranteed to match
             # the others, so omit that test for now. If the model_covariance matches,
             # this test is not critical, but we'll think over how it can be improved.
@@ -240,22 +241,26 @@ end
         # E) Test model_psd. This isn't easy to see how to test, other than re-implement
         # the model_psd code itself!
         N = 50
-        freq = collect(linspace(0, 0.5, N))
+        freq = collect(range(0, stop=0.5, length=N))
         z = exp.(-2im*pi *freq)
-        numer = m1.thetacoef[1] + zeros(Complex128, N)
+        numer = m1.thetacoef[1] + fill(0.0im, N)
         for i=1:m1.q
-            numer += m1.thetacoef[i+1] * (z.^i)
+            numer .+= m1.thetacoef[i+1] * (z.^i)
         end
-        denom = m1.phicoef[1] + zeros(Complex128, N)
+        denom = m1.phicoef[1] + fill(0.0im, N)
         for i=1:m1.p
-            denom += m1.phicoef[i+1] * (z.^i)
+            denom .+= m1.phicoef[i+1] * (z.^i)
         end
         psd = abs2.(numer ./ denom)
         threshold = 1e-3 * maximum(abs.(psd[1]))
-        @test all(abs.(psd - model_psd(m1, N)) .< threshold)
+        mpsd = model_psd(m1, N)
+        @show size(psd), size(mpsd), threshold
+        @test all(abs.(psd .- mpsd) .< threshold)
         # @test all(abs.(psd - model_psd(m2, N)) .< threshold)
         # @test all(abs.(psd - model_psd(m3, N)) .< threshold)
-        @test all(abs.(psd - model_psd(m1, freq)) .< threshold)
+
+        mpsd = model_psd(m1, freq)
+        @test all(abs.(psd .- mpsd) .< threshold)
         # @test all(abs.(psd - model_psd(m2, freq)) .< threshold)
         # @test all(abs.(psd - model_psd(m3, freq)) .< threshold)
 
@@ -269,7 +274,7 @@ function test_sum_exp(ampls::Vector, bases::Vector, N::Integer)
     # First, make sure that ARMA.exponential_model does the right thing.
     t = 0:(N-1)
     signal = ARMA.exponential_model(t, ampls, bases)
-    signal2 = zeros(signal)
+    signal2 = zero(signal)
     for (b,a) in zip(bases,ampls)
         signal2 += real(a*(b.^(0:N-1)))
     end
@@ -282,18 +287,18 @@ function test_sum_exp(ampls::Vector, bases::Vector, N::Integer)
     NB = length(bases)
     afit, bfit = fit_exponentials(signal, pmin=NB, pmax=NB)
     cmodel = ARMA.exponential_model(t, afit, bfit)
-    @test all(abs.(cmodel-signal) .< .1*maximum(signal))
+    @test all(abs.(cmodel .- signal) .< .1*maximum(signal))
 
     # Now test the full fitARMA function, with 0 and then 1 exceptional value.
     p = length(bases)
     model = fitARMA(signal, p, p-1, deltar=noise_level, pmin=p-2)
     cmodel = model_covariance(model, N)
-    @test all(abs.(cmodel-signal) .< .1*maximum(signal))
+    @test all(abs.(cmodel .- signal) .< .1*maximum(signal))
 
     signal[1] *= 2
     model = fitARMA(signal, p, p, deltar=noise_level, pmin=p-2)
     cmodel = model_covariance(model, N)
-    @test all(abs.(cmodel-signal) .< .1*maximum(signal))
+    @test all(abs.(cmodel .- signal) .< .1*maximum(signal))
 end
 
 @testset "exponential_fits" begin
@@ -316,13 +321,13 @@ end
     poles = [1.25,-2]
     model = ARMAModel(r, poles, 10.0)
     N = 50
-    Phi = zeros(Float64, N, N)
+    Phi = fill(0.0, N, N)
     for i=1:model.p+1
         for col=1:N+1-i
             Phi[col+i-1,col] = model.phicoef[i]
         end
     end
-    The = zeros(Float64, N, N)
+    The = fill(0.0, N, N)
     for i=1:model.q+1
         for col=1:N+1-i
             The[col+i-1,col] = model.thetacoef[i]
@@ -365,15 +370,15 @@ arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .<
         N = 16
         gamma = model_covariance(model, N)
         R = ARMA.toeplitz(gamma, gamma)
-        L = Matrix(chol(R)')
-        x = zeros(Float64, N)
-        y = zeros(Float64, N)
+        L = cholesky(R).L
+        x = fill(0.0, N)
+        y = fill(0.0, N)
         x[1:model.p+1] = model.phicoef
         y[1] = x[1]
         Phi = ARMA.toeplitz(x, y)
-        # must force symmetry, or numerical precision will make chol() fail.
+        # must force symmetry, or numerical precision will make cholesky() fail.
         RR = Hermitian(Phi*R*Phi')
-        LL = Matrix(chol(RR)')
+        LL = cholesky(RR).L
 
         solver = ARMASolver(model, N)
         for N in [2,4,6,8,10,14]
@@ -385,8 +390,8 @@ arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .<
             @test arrays_similar(R[1:N,1:N]*v, mult_covariance(solver, v), 1e-7)
             @test arrays_similar(R[1:N,1:N]\v, solve_covariance(solver, v), 1e-3)
             Rinv = inverse_covariance(solver, N)
-            @test arrays_similar(R[1:N,1:N]*Rinv, eye(N), 1e-7)
-            @test arrays_similar(Rinv*R[1:N,1:N], eye(N), 1e-7)
+            @test arrays_similar(R[1:N,1:N]*Rinv, Matrix{Float64}(I, N, N), 1e-7)
+            @test arrays_similar(Rinv*R[1:N,1:N], Matrix{Float64}(I, N, N), 1e-7)
 
             # Test that they can be applied to matrices as well as vectors
             M = randn(N, 4)

@@ -2,6 +2,8 @@
 # Functions to find the appropriate ARMA model from data.
 #
 
+using FFTW
+using Statistics
 include("RandomMatrix.jl")
 include("optimize_exponentials.jl")
 
@@ -55,14 +57,14 @@ function estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)
         error("Cannot compute $(nsamp) covariance values from a length-$N data.")
     end
     paddedsize = padded_length(chunklength+nsamp)
-    padded_data = zeros(Float64, paddedsize)
-    result = zeros(Float64, nsamp)
+    padded_data = fill(0.0, paddedsize)
+    result = fill(0.0, nsamp)
 
     i=0
     chunks_consumed = 0
     while i+chunklength <= N
         datamean = mean(timeseries[i+1:i+chunklength])
-        padded_data[1:chunklength] = timeseries[i+1:i+chunklength] - datamean
+        padded_data[1:chunklength] = timeseries[i+1:i+chunklength] .- datamean
         chunks_consumed += 1
 
         power = abs2.(rfft(padded_data))
@@ -117,12 +119,12 @@ function main_exponentials(data::Vector, nexp::Int; minexp=nothing)
     end
 
     ncol = min(40 + 5nexp, div(N, 2))
-    H = zeros(Float64, N+1-ncol, ncol)
+    H = fill(0.0, N+1-ncol, ncol)
     for c=1:ncol
         H[:,c] = data[c:c+N-ncol]
     end
     U,s,V = find_svd_randomly(H[1:end-1,:], nexp)
-    W = diagm(s .^ (-0.5))
+    W = Diagonal(s .^ (-0.5))
     A = W*U'*H[2:end,:]*V*W
 
     # By default, return the exponential set of size nexp only.
@@ -188,7 +190,7 @@ Returns `C` such that B[1:2] are the roots of x^2+C[1]*X+C[2], and similarly for
 thus `-1 = B[end]*C[end]`.
 """
 function B2C(B::AbstractVector{T}) where {T<:Number}
-    C = zeros(Float64, length(B))
+    C = fill(0.0, length(B))
     n = length(B)
     for i=1:2:n-1
         C[i] = -real(B[i]+B[i+1])
@@ -211,7 +213,7 @@ for more.
 Returns `B`, the possibly complex roots.
 """
 function C2B(C::AbstractVector{T}) where {T<:Real}
-    B = zeros(Complex{eltype(C)}, length(C))
+    B = fill(zero(Complex{eltype(C)}), size(C))
     n = length(C)
     iscomplex = false
     for i = 1:2:n-1
@@ -260,8 +262,8 @@ function findA(t::AbstractVector, r::Vector, B::Vector{T}; w=nothing) where {T<:
     end
     wr = w.*r
     p = length(B)
-    M = zeros(T, p, p)
-    D = zeros(T, p)
+    M = fill(zero(T), p, p)
+    D = fill(zero(T), p)
     for i=1:p
         for j=1:i
             M[j,i] = M[i,j] = sum(w .* (B[i]*B[j]).^t)
@@ -282,7 +284,7 @@ Computes and returns the sum-of-exponentials model with amplitudes `A` and
 exponential bases `B` at time steps `t`.
 """
 function exponential_model(t::AbstractVector, A::Vector, B::Vector)
-    r = zeros(Float64, length(t))
+    r = fill(0.0, length(t))
     for i=1:length(A)
         r += real(A[i]* B[i].^t)
     end
