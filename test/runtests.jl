@@ -54,8 +54,8 @@ end
 
 @testset "ARMA_constructors" begin
     p,q = 3,3
-    rs = 1+(randn(q) .^ 2)
-    ps = 1+(randn(p) .^ 2)
+    rs = 1 .+ (randn(q) .^ 2)
+    ps = 1 .+ (randn(p) .^ 2)
     variance = 1.0
     m = ARMAModel(rs, ps, variance)
     @test m.p == p
@@ -183,7 +183,7 @@ end
         else
             covarIV = gamma[1:1+q-p]
         end
-        B = Array{ComplexF64}(p,p)
+        B = Array{ComplexF64}(undef, p, p)
         for r=1:p
             for c=1:p
                 B[r,c] = expbases[c]^(N-p+r-1)
@@ -243,23 +243,24 @@ end
         N = 50
         freq = collect(range(0, stop=0.5, length=N))
         z = exp.(-2im*pi *freq)
-        numer = m1.thetacoef[1] + fill(0.0im, N)
+        numer = m1.thetacoef[1] .+ fill(0.0im, N)
         for i=1:m1.q
             numer .+= m1.thetacoef[i+1] * (z.^i)
         end
-        denom = m1.phicoef[1] + fill(0.0im, N)
+        denom = m1.phicoef[1] .+ fill(0.0im, N)
         for i=1:m1.p
             denom .+= m1.phicoef[i+1] * (z.^i)
         end
         psd = abs2.(numer ./ denom)
         threshold = 1e-3 * maximum(abs.(psd[1]))
         mpsd = model_psd(m1, N)
-        @show size(psd), size(mpsd), threshold
+        @test size(psd) == size(mpsd)
         @test all(abs.(psd .- mpsd) .< threshold)
         # @test all(abs.(psd - model_psd(m2, N)) .< threshold)
         # @test all(abs.(psd - model_psd(m3, N)) .< threshold)
 
         mpsd = model_psd(m1, freq)
+        @test size(psd) == size(mpsd)
         @test all(abs.(psd .- mpsd) .< threshold)
         # @test all(abs.(psd - model_psd(m2, freq)) .< threshold)
         # @test all(abs.(psd - model_psd(m3, freq)) .< threshold)
@@ -275,15 +276,15 @@ function test_sum_exp(ampls::Vector, bases::Vector, N::Integer)
     t = 0:(N-1)
     signal = ARMA.exponential_model(t, ampls, bases)
     signal2 = zero(signal)
-    for (b,a) in zip(bases,ampls)
-        signal2 += real(a*(b.^(0:N-1)))
+    for (b,a) in zip(bases, ampls)
+        signal2 .+= real(a*(b.^(0:N-1)))
     end
     @test all(abs.(signal2-signal) .< 1e-6*minimum(abs.(ampls)))
 
     # Now add a tiny bit of noise, fit exponentials and see what happens.
     # Rather than testing the fit, test the model that it generates.
-    noise_level = 1e-3
-    signal += randn(N)*noise_level
+    noise_level = 1e-4
+    signal .+= randn(N)*noise_level
     NB = length(bases)
     afit, bfit = fit_exponentials(signal, pmin=NB, pmax=NB)
     cmodel = ARMA.exponential_model(t, afit, bfit)
@@ -311,7 +312,7 @@ end
     test_sum_exp(ampls, bases, 400)
 
     ampls=[1,2,3,4,5]
-    bases=[.999, .99, .95, .9, .7]
+    bases=[.999, .95, .9, .8, .5]
     test_sum_exp(ampls, bases, 400)
 end
 
@@ -327,15 +328,15 @@ end
             Phi[col+i-1,col] = model.phicoef[i]
         end
     end
-    The = fill(0.0, N, N)
+    Theta = fill(0.0, N, N)
     for i=1:model.q+1
         for col=1:N+1-i
-            The[col+i-1,col] = model.thetacoef[i]
+            Theta[col+i-1,col] = model.thetacoef[i]
         end
     end
     for i=1:5
         v = randn(N)
-        correct_tw = The \ (Phi * v)
+        correct_tw = Theta \ (Phi * v)
         tw = toeplitz_whiten(model, v)
         @test all(abs.(tw - correct_tw) .< 1e-6)
     end

@@ -498,11 +498,12 @@ frequencies from 0 to 0.5.
 """
 function model_psd(m::ARMAModel, freq::AbstractVector)
     z = exp.(-2im*pi *freq)
-    numer = m.thetacoef[1]
+    N = length(freq)
+    numer = fill(complex(m.thetacoef[1]), N)
     for i=1:m.q
         numer .+= m.thetacoef[i+1] * (z.^i)
     end
-    denom = m.phicoef[1]
+    denom = fill(complex(m.phicoef[1]), N)
     for i=1:m.p
         denom .+= m.phicoef[i+1] * (z.^i)
     end

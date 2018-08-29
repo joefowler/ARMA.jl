@@ -286,7 +286,7 @@ exponential bases `B` at time steps `t`.
 function exponential_model(t::AbstractVector, A::Vector, B::Vector)
     r = fill(0.0, length(t))
     for i=1:length(A)
-        r += real(A[i]* B[i].^t)
+        r .+= real(A[i]* B[i].^t)
     end
     r
 end
