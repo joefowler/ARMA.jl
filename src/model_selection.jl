@@ -43,7 +43,7 @@ least 10-20x nsamp.
 estimate_covariance(timeseries::AbstractVector) = estimate_covariance(timeseries, length(timeseries))
 
 function estimate_covariance(timeseries::AbstractVector, nsamp::Int)
-    const N = length(timeseries)
+    N = length(timeseries)
     ideal_chunksize = 15*nsamp
     nchunks = div(N-1+ideal_chunksize, ideal_chunksize)
     chunklength = div(N, nchunks)
@@ -51,7 +51,7 @@ function estimate_covariance(timeseries::AbstractVector, nsamp::Int)
 end
 
 function estimate_covariance(timeseries::Vector, nsamp::Int, chunklength::Int)
-    const N = length(timeseries)
+    N = length(timeseries)
     if nsamp > N
         error("Cannot compute $(nsamp) covariance values from a length-$N data.")
     end
@@ -110,7 +110,7 @@ is very, very long.
 """
 
 function main_exponentials(data::Vector, nexp::Int; minexp=nothing)
-    const N = length(data)
+    N = length(data)
     if 2nexp > N
         error("Cannot compute $(nexp) exponentials from data with fewer than twice as many data values.")
     end
@@ -193,7 +193,7 @@ thus `-1 = B[end]*C[end]`.
 
 function B2C{T<:Number}(B::AbstractVector{T})
     C = zeros(Float64, length(B))
-    const n = length(B)
+    n = length(B)
     for i=1:2:n-1
         C[i] = -real(B[i]+B[i+1])
         C[i+1] = real(B[i]*B[i+1])
@@ -217,7 +217,7 @@ Returns `B`, the possibly complex roots.
 
 function C2B{T<:Real}(C::AbstractVector{T})
     B = zeros(Complex{eltype(C)}, length(C))
-    const n = length(C)
+    n = length(C)
     iscomplex = false
     for i = 1:2:n-1
         x = -0.5C[i]
@@ -265,7 +265,7 @@ function findA{T<:Number}(t::AbstractVector, r::Vector, B::Vector{T}; w=nothing)
         w = ones(r)
     end
     wr = w.*r
-    const p = length(B)
+    p = length(B)
     M = zeros(T, p, p)
     D = zeros(T, p)
     for i=1:p
@@ -354,7 +354,7 @@ function fit_exponentials(data::Vector; pmin::Int=0, pmax::Int=6,
 
     guess_exponentials = main_exponentials(data, pmax, minexp=pmin)
 
-    const N = length(data)
+    N = length(data)
     if w == nothing
         # If deltar isn't given, use the heuristic that the std dev of the
         # diff of the last values in data estimates sqrt(2) times deltar.

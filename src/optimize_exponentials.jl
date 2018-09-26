@@ -24,7 +24,7 @@ type ExpFitBuffer
     Θ::Matrix{Complex128}
 
     function ExpFitBuffer(r::Vector, t::AbstractVector, p::Integer, w::Vector)
-        const Nt = length(r)
+        Nt = length(r)
         @assert Nt == length(t)
 
         r = copy(r)
@@ -97,7 +97,7 @@ end
 
 
 function ARMA_objective(C::Vector, grad::Vector, buffer::ExpFitBuffer)
-    const p = length(C)
+    p = length(C)
     B = C2B(C)
     A = findA(buffer.t, buffer.r, B, w=buffer.w)
     fmodel = exponential_model(buffer.t, A, B)
@@ -111,7 +111,7 @@ end
 
 
 function optimize_exponentials(data::Vector, w::Vector, guessC::Vector)
-    const p = length(guessC)
+    p = length(guessC)
     if p == 0
         return sum(data[2:end].^2 .* w[2:end]), Float64[]
     end

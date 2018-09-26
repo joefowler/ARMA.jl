@@ -254,7 +254,7 @@ function solveGammaMA(gammaMA::AbstractVector; maxiter=1000)
         mean(abs.(residual))
     end
 
-    const n = length(gammaMA)
+    n = length(gammaMA)
     theta = zeros(Float64, n)
     theta[1] = 1
     var = gammaMA[1]
@@ -313,9 +313,9 @@ end
 # and q=p-1+length(covarIV).
 
 function ARMAModel(bases::AbstractVector, amplitudes::AbstractVector, covarIV::AbstractVector)
-    const p = length(bases)
+    p = length(bases)
     @assert p == length(amplitudes)
-    const q = p-1+length(covarIV)
+    q = p-1+length(covarIV)
 
     # Find the covariance from lags 0 to p+q. Call it gamma
     gamma = zeros(Float64, 1+p+q+50)
@@ -373,7 +373,7 @@ Store the `model` to an HDF5 file.
 or the file name of an HDF5 file which will be created.
 """
 function hdf5save(output::HDF5.DataFile, model::ARMAModel)
-    const GROUPNAME = "ARMAModel"
+    GROUPNAME = "ARMAModel"
     if exists(output, GROUPNAME)
         o_delete(output, GROUPNAME)
     end

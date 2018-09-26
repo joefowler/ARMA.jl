@@ -123,8 +123,8 @@ end
             phcoef /= phcoef[1]
         end
         @assert phcoef[1] == 1.0
-        const p = length(phcoef)-1
-        const q = length(thcoef)-1
+        p = length(phcoef)-1
+        q = length(thcoef)-1
         # println("Testing model $model of order ARMA($p,$q).")
 
         m1 = ARMAModel(thcoef, phcoef)
