@@ -4,8 +4,8 @@ os:
   - linux
   - osx
 julia:
-  - release
-  # - nightly
+  # - release
+  - 0.7
 notifications:
   email: false
 addons:
