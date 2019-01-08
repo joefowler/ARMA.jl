@@ -1,6 +1,8 @@
 module ARMA
 
 using Polynomials, NLsolve, HDF5
+using LinearAlgebra
+using Statistics
 
 export
     estimate_covariance,
@@ -76,17 +78,16 @@ representations are computed and stored.
 See also: [`ARMASolver`](@ref) for fast mutliplies and solves of either the
 noise model covariance matrix or its Cholesky factor.
 """
-
-type ARMAModel
+mutable struct ARMAModel
     p         ::Int
     q         ::Int
-    roots_    ::Vector{Complex128}
-    poles     ::Vector{Complex128}
+    roots_    ::Vector{ComplexF64}
+    poles     ::Vector{ComplexF64}
     thetacoef ::Vector{Float64}
     phicoef   ::Vector{Float64}
     covarIV   ::Vector{Float64}
-    expbases  ::Vector{Complex128}
-    expampls  ::Vector{Complex128}
+    expbases  ::Vector{ComplexF64}
+    expampls  ::Vector{ComplexF64}
 
     function ARMAModel(p,q,roots_,poles,thetacoef,phicoef,covarIV,expbases,expampls)
         @assert p == length(poles)
@@ -120,7 +121,6 @@ end
 
 "Go from theta,phi polynomials to the sum-of-exponentials representation.
 Returns (covar_initial_values, exponential_bases, exponential_amplitudes)."
-
 function _covar_repr(thetacoef::Vector, phicoef::Vector)
     roots_ = roots(Poly(thetacoef))
     poles = roots(Poly(phicoef))
@@ -132,20 +132,20 @@ function _covar_repr(thetacoef::Vector, phicoef::Vector)
     # Find the initial, exceptional values.
 
     # psi comes from Brockwell 3.3.3 or delta in Pollock 17.87.
-    phi = zeros(Float64, n+1)
+    phi = fill(0.0, n+1)
     phi[1:p+1] = phicoef
-    P = toeplitz(phi, zeros(Float64, n+1)) # lower-triangular toeplitz
-    theta = zeros(Float64, n+1)
+    P = toeplitz(phi, fill(0.0, n+1)) # lower-triangular toeplitz
+    theta = fill(0.0, n+1)
     theta[1:q+1] = thetacoef
     psi = P \ theta
 
-    T = zeros(Float64, n+1, n+1) # A Hankel matrix containing theta in first col.
+    T = fill(0.0, n+1, n+1) # A Hankel matrix containing theta in first col.
     for r=1:n+1
         for c=1:n+2-r
             T[r,c] = theta[c+r-1]
         end
     end
-    P2 = zeros(Float64, n+1, n+1)
+    P2 = fill(0.0, n+1, n+1)
     for r=1:n+1
         for i=1:p+1
             c = r-i+1
@@ -158,7 +158,7 @@ function _covar_repr(thetacoef::Vector, phicoef::Vector)
     # Work in the range where exceptional values no longer hold.
     # XI[r,c] = expbases[c]^(r-1-lowestpower)
     # lowestpower is chosen to make the top row be beyond the 1+q-p expectional values.
-    XI = Array{Complex128}(p, p)
+    XI = Array{ComplexF64}(undef, p, p)
     lowestpower = p >= q ? 1 : 1+q-p
     for c=1:p
         XI[:,c] = expbases[c] .^ collect(lowestpower:p+lowestpower-1)
@@ -192,7 +192,6 @@ WhiteModel() = ARMAModel([1.0], [1.0])
 "Form the coefficients of a polynomial from the given roots `r`.
 It is assumed that the coefficients are real, so only the real part is kept.
 The zero-order term (the first) has coefficient +1. Fails if 0 is a root."
-
 function polynomial_from_roots(r::AbstractVector)
     pr = prod(r)
     @assert abs(imag(pr)/real(pr)) < 1e-10
@@ -249,13 +248,13 @@ function solveGammaMA(gammaMA::AbstractVector; maxiter=1000)
     end
 
     function cost(x)
-        residual = zeros(x)
+        residual = fill(zero(eltype(x)), size(x))
         f!(residual, x)
         mean(abs.(residual))
     end
 
-    const n = length(gammaMA)
-    theta = zeros(Float64, n)
+    n = length(gammaMA)
+    theta = fill(0.0, n)
     theta[1] = 1
     var = gammaMA[1]
     besttheta = copy(theta)
@@ -313,12 +312,12 @@ end
 # and q=p-1+length(covarIV).
 
 function ARMAModel(bases::AbstractVector, amplitudes::AbstractVector, covarIV::AbstractVector)
-    const p = length(bases)
+    p = length(bases)
     @assert p == length(amplitudes)
-    const q = p-1+length(covarIV)
+    q = p-1+length(covarIV)
 
     # Find the covariance from lags 0 to p+q. Call it gamma
-    gamma = zeros(Float64, 1+p+q+50)
+    gamma = fill(0.0, 1+p+q+50)
     t = 0:length(gamma)-1
     for i=1:p
         gamma += real(amplitudes[i] * (bases[i] .^ t))
@@ -330,7 +329,7 @@ function ARMAModel(bases::AbstractVector, amplitudes::AbstractVector, covarIV::A
     phicoef = polynomial_from_roots(poles)
 
     # Find the nonlinear system of equations for the theta coefficients
-    gammaMA = zeros(Float64, 1+q)
+    gammaMA = fill(0.0, 1+q)
     for t=0:q
         for i=1:p+1
             for j=1:p+1
@@ -373,7 +372,7 @@ Store the `model` to an HDF5 file.
 or the file name of an HDF5 file which will be created.
 """
 function hdf5save(output::HDF5.DataFile, model::ARMAModel)
-    const GROUPNAME = "ARMAModel"
+    GROUPNAME = "ARMAModel"
     if exists(output, GROUPNAME)
         o_delete(output, GROUPNAME)
     end
@@ -400,7 +399,6 @@ Load and return an `ARMAModel` object from `input`. The argument `input` can be
 the "ARMAModel" group, the group that contains it, or the name of an HDF5 file
 (group "ARMAModel" would need to be at the root of the file).
 """
-
 function hdf5load(input::HDF5.DataFile)
     if exists(input, "ARMAModel")
         return hdf5load(input["ARMAModel"])
@@ -424,13 +422,12 @@ end
 
 Generate a simulated noise timeseries of length `N` from an ARMAModel `m`.
 """
-
 function generate_noise(m::ARMAModel, N::Int)
     # eps = white N(0,1) noise; x = after MA process; z = after inverting AR
     eps = randn(N+m.q)
     eps[1:m.p] = 0
-    x = zeros(Float64, N)
-    z = zeros(Float64, N)
+    x = fill(0.0, N)
+    z = fill(0.0, N)
     for i=1:m.q+1
         x += eps[i:end+i-m.p-1] * m.thetacoef[i]
     end
@@ -465,7 +462,6 @@ returns the covariance given the initial exceptional values of covariance
 coefficients, a recusion allows computation of covariance beyond the initial
 values.)
 """
-
 function model_covariance(covarIV::AbstractVector, phicoef::AbstractVector, N::Int)
     if N < length(covarIV)
         return covarIV[1:N]
@@ -474,7 +470,7 @@ function model_covariance(covarIV::AbstractVector, phicoef::AbstractVector, N::I
     if phicoef[1] != 1.0
         phicoef = phicoef/phicoef[1]
     end
-    covar = zeros(Float64, N)
+    covar = fill(0.0, N)
     covar[1:length(covarIV)] = covarIV[1:end]
 
     # Use Pollock eq 17.86
@@ -500,21 +496,21 @@ The first returns PSD at the given frequencies `freq` (frequency 0.5 is the
 critical, or Nyquist, frequency). The second returns PSD at `N` equally-spaced
 frequencies from 0 to 0.5.
 """
-
 function model_psd(m::ARMAModel, freq::AbstractVector)
     z = exp.(-2im*pi *freq)
-    numer = m.thetacoef[1]
+    N = length(freq)
+    numer = fill(complex(m.thetacoef[1]), N)
     for i=1:m.q
-        numer += m.thetacoef[i+1] * (z.^i)
+        numer .+= m.thetacoef[i+1] * (z.^i)
     end
-    denom = m.phicoef[1]
+    denom = fill(complex(m.phicoef[1]), N)
     for i=1:m.p
-        denom += m.phicoef[i+1] * (z.^i)
+        denom .+= m.phicoef[i+1] * (z.^i)
     end
     abs2.(numer ./ denom)
 end
 
-model_psd(m::ARMAModel, N::Int) = model_psd(m, collect(linspace(0, 0.5, N)))
+model_psd(m::ARMAModel, N::Int) = model_psd(m, collect(range(0, stop=0.5, length=N)))
 
 
 """
@@ -533,10 +529,9 @@ No Toeplitz matrix has the ability to make the input exactly white,
 but for many purposes, the time-shift property is more valuable than
 that exact whitening.
 """
-
 function toeplitz_whiten(m::ARMAModel, timestream::AbstractVector)
     N = length(timestream)
-    white = zeros(Float64, N)
+    white = fill(0.0, N)
 
     # First, multiply the input by the AR matrix (a banded Toeplitz
     # matrix with the phi coefficients on the diagonal and first p
@@ -582,10 +577,9 @@ end
 Return a toeplitz matrix `T` whose first column is given by `col1`. If `row1` is
 supplied, then row1[2:end] gives `T[1,2:end]`. Otherwise, `T` is symmetric.
 """
-
 function toeplitz(c::AbstractVector)
     N = length(c)
-    t = Array{eltype(c)}(N,N)
+    t = Array{eltype(c)}(undef, N, N)
     for i=1:N
         for j=1:i
             t[i,j] = t[j,i] = c[1+i-j]
@@ -596,7 +590,7 @@ end
 
 function toeplitz(c::AbstractVector, r::AbstractVector)
     M,N = length(c), length(r)
-    t = Array{eltype(c)}(M,N)
+    t = Array{eltype(c)}(undef, M, N)
     for i=1:M
         for j=1:i
             t[i,j] = c[1+i-j]

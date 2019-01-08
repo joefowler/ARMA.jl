@@ -1,5 +1,11 @@
-julia 0.5
-Polynomials
+julia 0.7
+HDF5
+FFTW
+LinearAlgebra
 NLsolve
 NLopt
-HDF5
+Polynomials
+Printf
+SparseArrays
+Statistics
+Test
