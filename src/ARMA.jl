@@ -3,6 +3,7 @@ module ARMA
 using Polynomials, NLsolve, HDF5
 using LinearAlgebra
 using Statistics
+using ToeplitzMatrices
 
 export
     estimate_covariance,
@@ -134,7 +135,7 @@ function _covar_repr(thetacoef::Vector, phicoef::Vector)
     # psi comes from Brockwell 3.3.3 or delta in Pollock 17.87.
     phi = fill(0.0, n+1)
     phi[1:p+1] = phicoef
-    P = toeplitz(phi, fill(0.0, n+1)) # lower-triangular toeplitz
+    P = TriangularToeplitz(phi, :L) # lower-triangular toeplitz
     theta = fill(0.0, n+1)
     theta[1:q+1] = thetacoef
     psi = P \ theta
@@ -570,37 +571,6 @@ function toeplitz_whiten(m::ARMAModel, M::AbstractMatrix)
     mapslices(tw, M, 1)
 end
 
-
-"""
-    toeplitz(col1, [row1])
-
-Return a toeplitz matrix `T` whose first column is given by `col1`. If `row1` is
-supplied, then row1[2:end] gives `T[1,2:end]`. Otherwise, `T` is symmetric.
-"""
-function toeplitz(c::AbstractVector)
-    N = length(c)
-    t = Array{eltype(c)}(undef, N, N)
-    for i=1:N
-        for j=1:i
-            t[i,j] = t[j,i] = c[1+i-j]
-        end
-    end
-    t
-end
-
-function toeplitz(c::AbstractVector, r::AbstractVector)
-    M,N = length(c), length(r)
-    t = Array{eltype(c)}(undef, M, N)
-    for i=1:M
-        for j=1:i
-            t[i,j] = c[1+i-j]
-        end
-        for j=i+1:N
-            t[i,j] = r[1+j-i]
-        end
-    end
-    t
-end
 
 include("exact_operations.jl")
 

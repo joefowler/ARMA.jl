@@ -1,6 +1,7 @@
 using ARMA, Polynomials
 using LinearAlgebra
 using Test
+using ToeplitzMatrices
 
 @testset "ARMA" begin
 
@@ -370,13 +371,13 @@ arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .<
     for model in (model23, model32, model25, model52)
         N = 16
         gamma = model_covariance(model, N)
-        R = ARMA.toeplitz(gamma, gamma)
+        R = SymmetricToeplitz(gamma)
         L = cholesky(R).L
         x = fill(0.0, N)
         y = fill(0.0, N)
         x[1:model.p+1] = model.phicoef
         y[1] = x[1]
-        Phi = ARMA.toeplitz(x, y)
+        Phi = Toeplitz(x, y)
         # must force symmetry, or numerical precision will make cholesky() fail.
         RR = Hermitian(Phi*R*Phi')
         LL = cholesky(RR).L
