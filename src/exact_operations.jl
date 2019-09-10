@@ -5,6 +5,7 @@
 
 using LinearAlgebra
 using SparseArrays
+using ToeplitzMatrices
 
 """
     convolve_same(b, kernel)
@@ -86,14 +87,14 @@ end
 
 function ARMASolver(m::ARMAModel, N::Integer)
     covar = model_covariance(m, 1+m.p+2m.q)
-    R_corner  = toeplitz(covar, covar)
+    R_corner  = SymmetricToeplitz(covar)
     Nc = length(covar)
     Nbands = max(m.p, m.q+1)
     x = fill(0.0, Nc)
     y = fill(0.0, Nc)
     x[1:m.p+1] = m.phicoef
     y[1] = x[1]
-    Phi = toeplitz(x, y)
+    Phi = Toeplitz(x, y)
     # Hermitian enforces exact symetry even after round-off error.
     RR_corner = Hermitian(Phi*R_corner*Phi')
     RR_toeplitz = fill(0.0, 2m.q+1)

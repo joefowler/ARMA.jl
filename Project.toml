@@ -1,7 +1,7 @@
 name = "ARMA"
 uuid = "cd9ce936-d6d7-11e8-0157-ada3f5245b07"
 authors = ["Joe Fowler <drjoefowler@gmail.com>"]
-version = "0.2.0"
+version = "0.2.1"
 
 [deps]
 FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
@@ -13,6 +13,7 @@ Polynomials = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+ToeplitzMatrices = "c751599d-da0a-543b-9d20-d0a503d91d24"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
