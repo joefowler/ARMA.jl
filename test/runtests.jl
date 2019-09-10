@@ -397,7 +397,7 @@ arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .<
 
             # Test that they can be applied to matrices as well as vectors
             M = randn(N, 4)
-            @test arrays_similar(L[1:N,1:N]\M, whiten(solver, M), 1e-6)
+            @test arrays_similar(L[1:N,1:N]\M, whiten(solver, M), 1e-5)
             @test arrays_similar(L[1:N,1:N]*M, unwhiten(solver, M), 1e-7)
             @test arrays_similar(R[1:N,1:N]*M, mult_covariance(solver, M), 1e-7)
             @test arrays_similar(R[1:N,1:N]\M, solve_covariance(solver, M), 1e-3)
