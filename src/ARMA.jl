@@ -372,12 +372,12 @@ Store the `model` to an HDF5 file.
 `output` may be an HDF5 file open for writing, an HDF5 group within such a file,
 or the file name of an HDF5 file which will be created.
 """
-function hdf5save(output::HDF5.DataFile, model::ARMAModel)
+function hdf5save(output::HDF5.H5DataStore, model::ARMAModel)
     GROUPNAME = "ARMAModel"
-    if exists(output, GROUPNAME)
+    if haskey(output, GROUPNAME)
         o_delete(output, GROUPNAME)
     end
-    grp = g_create(output, GROUPNAME)
+    grp = create_group(output, GROUPNAME)
     grp["basesR"] = real(model.expbases)
     grp["basesI"] = imag(model.expbases)
     grp["amplitudesR"] = real(model.expampls)
@@ -400,8 +400,8 @@ Load and return an `ARMAModel` object from `input`. The argument `input` can be
 the "ARMAModel" group, the group that contains it, or the name of an HDF5 file
 (group "ARMAModel" would need to be at the root of the file).
 """
-function hdf5load(input::HDF5.DataFile)
-    if exists(input, "ARMAModel")
+function hdf5load(input::HDF5.H5DataStore)
+    if haskey(input, "ARMAModel")
         return hdf5load(input["ARMAModel"])
     end
     bases = input["basesR"][:] + 1im*input["basesI"][:]
