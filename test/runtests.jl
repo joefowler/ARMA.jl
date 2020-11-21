@@ -131,8 +131,8 @@ end
 
         m1 = ARMAModel(thcoef, phcoef)
 
-        roots_ = roots(Poly(thcoef))
-        poles = roots(Poly(phcoef))
+        roots_ = roots(Polynomial(thcoef))
+        poles = roots(Polynomial(phcoef))
         expbases = 1.0 ./ poles
 
         # We'll be working with q+1 equations to find initial values

@@ -123,8 +123,8 @@ end
 "Go from theta,phi polynomials to the sum-of-exponentials representation.
 Returns (covar_initial_values, exponential_bases, exponential_amplitudes)."
 function _covar_repr(thetacoef::Vector, phicoef::Vector)
-    roots_ = roots(Poly(thetacoef))
-    poles = roots(Poly(phicoef))
+    roots_ = roots(Polynomial(thetacoef))
+    poles = roots(Polynomial(phicoef))
     expbases = 1.0 ./ poles
     q = length(roots_)
     p = length(poles)
@@ -177,8 +177,8 @@ function ARMAModel(thetacoef::Vector, phicoef::Vector)
         theta = -theta
     end
     phi = phicoef / phicoef[1]
-    roots_ = roots(Poly(theta))
-    poles = roots(Poly(phi))
+    roots_ = roots(Polynomial(theta))
+    poles = roots(Polynomial(phi))
     @assert all(abs2.(roots_) .> 1)
     @assert all(abs2.(poles) .> 1)
     q = length(roots_)
@@ -196,7 +196,7 @@ The zero-order term (the first) has coefficient +1. Fails if 0 is a root."
 function polynomial_from_roots(r::AbstractVector)
     pr = prod(r)
     @assert abs(imag(pr)/real(pr)) < 1e-10
-    coef = real(poly(r).a)
+    coef = real(fromroots(r).coeffs)
     coef / coef[1]
 end
 
@@ -340,7 +340,7 @@ function ARMAModel(bases::AbstractVector, amplitudes::AbstractVector, covarIV::A
     end
 
     besttheta = solveGammaMA(gammaMA)
-    roots_ = roots(Poly(besttheta))
+    roots_ = roots(Polynomial(besttheta))
 
     # Now a clever trick: any roots r of the MA polynomial that are INSIDE
     # the unit circle can be replaced by 1/r and yield the same covariance.
@@ -372,12 +372,12 @@ Store the `model` to an HDF5 file.
 `output` may be an HDF5 file open for writing, an HDF5 group within such a file,
 or the file name of an HDF5 file which will be created.
 """
-function hdf5save(output::HDF5.DataFile, model::ARMAModel)
+function hdf5save(output::HDF5.H5DataStore, model::ARMAModel)
     GROUPNAME = "ARMAModel"
-    if exists(output, GROUPNAME)
+    if haskey(output, GROUPNAME)
         o_delete(output, GROUPNAME)
     end
-    grp = g_create(output, GROUPNAME)
+    grp = create_group(output, GROUPNAME)
     grp["basesR"] = real(model.expbases)
     grp["basesI"] = imag(model.expbases)
     grp["amplitudesR"] = real(model.expampls)
@@ -400,8 +400,8 @@ Load and return an `ARMAModel` object from `input`. The argument `input` can be
 the "ARMAModel" group, the group that contains it, or the name of an HDF5 file
 (group "ARMAModel" would need to be at the root of the file).
 """
-function hdf5load(input::HDF5.DataFile)
-    if exists(input, "ARMAModel")
+function hdf5load(input::HDF5.H5DataStore)
+    if haskey(input, "ARMAModel")
         return hdf5load(input["ARMAModel"])
     end
     bases = input["basesR"][:] + 1im*input["basesI"][:]
@@ -568,7 +568,7 @@ end
 
 function toeplitz_whiten(m::ARMAModel, M::AbstractMatrix)
     tw(v::AbstractVector) = toeplitz_whiten(m, v)
-    mapslices(tw, M, 1)
+    mapslices(tw, M, dims=1)
 end
 
 
