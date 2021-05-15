@@ -573,5 +573,6 @@ end
 
 
 include("exact_operations.jl")
+include("RCPRoots.jl")
 
 end # module

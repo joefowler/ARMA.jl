@@ -407,4 +407,5 @@ arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .<
 end
 
 include("hdf5test.jl")
+include("rcproots_test.jl")
 end
