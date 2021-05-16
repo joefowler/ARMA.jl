@@ -19,7 +19,8 @@ export
     mult_covariance,
     solve_covariance,
     inverse_covariance,
-    toeplitz_whiten
+    toeplitz_whiten,
+    BarycentricRational
 
 # ARMA.jl includes the basic ARMA models and their use
 # model_selection.jl includes tools for choosing a model (p,q) order
@@ -574,5 +575,6 @@ end
 
 include("exact_operations.jl")
 include("RCPRoots.jl")
+include("BarycentricRational.jl")
 
 end # module
