@@ -577,5 +577,6 @@ include("exact_operations.jl")
 include("RCPRoots.jl")
 include("BarycentricRational.jl")
 include("weightedAAA.jl")
+include("PartialFracRational.jl")
 
 end # module
