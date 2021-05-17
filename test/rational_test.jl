@@ -1,4 +1,4 @@
-using ARMA: BarycentricRational, roots_pfrac
+using ARMA: BarycentricRational, roots_pfrac, aaawt
 using Test
 
 @testset "BarycentricRational" begin
@@ -30,4 +30,19 @@ using Test
             @test all(isfinite.(testf))
         end
     end
+end
+
+@testset "AAA rational approx" begin
+    f(x) = 1.0/(x-2)+x^2
+    z = collect(LinRange(-1, 1, 51))
+    w = ones(Float64, length(z))
+    a1 = aaawt(z, f.(z), 3)
+    a2 = aaawt(z, f, 3)
+    a3 = aaawt(z, f.(z), w, 3)
+    a4 = aaawt(z, f, w, 3)
+    fapprox = a1(z)
+    @test all(a2(z) ≈ fapprox)
+    @test all(a3(z) ≈ fapprox)
+    @test all(a4(z) ≈ fapprox)
+    @test a1(Inf) == a1(-Inf)
 end
