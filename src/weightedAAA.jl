@@ -18,13 +18,13 @@
 
 # Handle function inputs as well as the default vector inputs.
 function aaawt(z::AbstractVector{T}, f::S, w::AbstractVector{U}, n::Integer; tol=1e-13, verbose=false) where {S<:Function, T, U}
-    aaawt(z, f.(z), w, n; tol=tol, verbose=verbose)
+    aaawt(z, f.(z), w, n; tol, verbose)
 end
 function aaawt(z::AbstractVector{T}, f::S, n::Integer; tol=1e-13, verbose=false) where {S<:Function, T}
-    aaawt(z, f.(z), ones(T, length(z)), n; tol=tol, verbose=verbose)
+    aaawt(z, f.(z), ones(T, length(z)), n; tol, verbose)
 end
 function aaawt(z::AbstractVector{T}, f::AbstractVector{S}, n::Integer; tol=1e-13, verbose=false) where {S, T}
-    aaawt(z, f, ones(T, length(z)), n; tol=tol, verbose=verbose)
+    aaawt(z, f, ones(T, length(z)), n; tol, verbose)
 end
 
 

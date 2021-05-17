@@ -52,8 +52,8 @@ struct PartialFracRational{T <: AbstractVector, U <: Number}
 end
 
 # Constructors
-PartialFracRational(b::AbstractVector{U}=[];polyMin::Number=-1, polyMax::Number=+1) where {U} =
-    PartialFracRational(Float64[], Float64[], b; polyMin=polyMin, polyMax=polyMax)
+PartialFracRational(b::AbstractVector{U};polyMin::Number=-1, polyMax::Number=+1) where {U} =
+    PartialFracRational(Float64[], Float64[], b; polyMin, polyMax)
 
 function PartialFracRational(λ::AbstractVector{S}, a::AbstractVector{T}, b::AbstractVector{U}=[];
     polyMin::Number=-1, polyMax::Number=+1) where {S, T, U}

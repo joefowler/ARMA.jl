@@ -52,6 +52,7 @@ end
 @testset "PartialFracRational" begin
     @test_throws AssertionError p=PartialFracRational([1,2],[3,4]; polyMin=1, polyMax=1)
     @test_throws DimensionMismatch p=PartialFracRational([1,2],[3,4,5,6,7])
+    @test_throws MethodError p=PartialFracRational()
 
     # Check that no b, b=[], and b=[0] are all equivalent
     z = LinRange(-2, 2, 93)
