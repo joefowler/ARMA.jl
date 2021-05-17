@@ -38,7 +38,7 @@ function BarycentricRational(λ::AbstractArray{S}, f::AbstractArray{T}, w::Abstr
     roots = roots_pfrac0(w.*f, λ)
     if eltype(poles) != eltype(roots)
         poles = complex(poles)
-        roots = complex(poles)
+        roots = complex(roots)
     end
     BarycentricRational(λ, f, w, poles, roots)
 end
