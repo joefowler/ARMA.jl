@@ -29,6 +29,8 @@ using Test
             testf = br(testx)
             @test all(isfinite.(testf))
         end
+        @test_throws DimensionMismatch p=BarycentricRational([1,2], [3,4,5,6,7], [0,2])
+        @test_throws ArgumentError p=BarycentricRational([1,2], [3,4], [0,0])
     end
 end
 

@@ -15,10 +15,17 @@ using LinearAlgebra
 
 Represent an order (p,p) rational function in barycentric form. That is, as
 
-    f(z) = (Σ i=1:p w[i]*f[i]/(z-λ[i]))/(Σ i=1:p w[i]/(z-λ[i]))
-    - λ[1:p] are the p support points
-    - f[1:p] are the function values at the supports
-    - w[1:p] are the weights
+f(z) = (Σ i=1:p w[i]*f[i]/(z-λ[i]))/(Σ i=1:p w[i]/(z-λ[i]))
+- λ[1:p] are the p support points
+- f[1:p] are the function values at the supports
+- w[1:p] are the weights
+
+# Constructor
+
+    BarycentricRational(λ::AbstractArray{S}, f::AbstractArray{T}, w::AbstractArray{U})
+
+The lengths of `λ`, `f`, and `w` must be equal. Element types will be promoted to be the same.
+Poles and roots will be computed automatically and stored as attributes `poles` and `roots`.
 """
 struct BarycentricRational{T,U <: AbstractArray}
     λ::T  # support points
@@ -33,6 +40,13 @@ end
 function BarycentricRational(λ::AbstractArray{S}, f::AbstractArray{T}, w::AbstractArray{U}) where {S, T, U}
     λ, f, w = promote(λ, f, w)
     P = promote_type(S, T, U)
+
+    n = length(λ)
+    if n != length(f)
+        throw(DimensionMismatch("length(λ) $(length(λ)) != length(f) $(length(f))"))
+    elseif n != length(w)
+        throw(DimensionMismatch("length(λ) $(length(λ)) != length(w) $(length(w))"))
+    end
 
     poles = roots_pfrac0(w, λ)
     roots = roots_pfrac0(w.*f, λ)
