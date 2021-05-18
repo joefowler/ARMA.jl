@@ -1,8 +1,46 @@
+# Allow user to fit for an ARMA model in power spectrum, not autocorrelation domain. An ARMA(p,q)
+# noise model yields a noise power spectrum that is rational of order(q-over-p) in cos(ω) and is
+# nonzero and finite for all ω∈[0,π] or cos(ω)∈[-1,1].
+#
+# Proceeds in several steps to find f(x=cos(ω)) ≈ PSD(ω), broadly:
+# 1. Find the poles of f
+# 1a. Find poles of an AAA mixed interpolation/fit.
+# 1b. Find poles of best-fit rational function by iteration, with previous (AAA) step as initial guess.
+# 1c. "Fix" poles by moving off the real line in [-1,1] to make f(x) be nonzero and finite at all real cos(ω)∈[-1,1].
+# 2. Find the roots of f
+
 include("RCPRoots.jl")
 include("BarycentricRational.jl")
 include("weightedAAA.jl")
 include("PartialFracRational.jl")
 include("vector_fitting.jl")
+
+function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
+    if p<0
+        throw(DomainError("fit_psd got AR order p=$p, requires at least 0."))
+    end
+    if q<0
+        q = p # Default to an order ARMA(p,p) model if q not given
+    end
+
+    N = length(PSD)
+    ω = LinRange(0, π, N)
+    ωstep = ω[2]
+    z = cos.(ω)
+    pulseFT2 = abs2.(rfft(pulsemodel)/maximum(pulsemodel))
+    if N != length(pulseFT2)
+        throw(DimensionMismatch("fit_psd: length(PSD) $N != length(rfft(pulsemodel)) $(length(pulseFT2))"))
+    end
+    w = pulseFT2 ./ PSD.^3
+    w[1] = 0
+
+    aaa_hybrid = aaawt(z, PSD, w, p)
+    vfit1 = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
+    vfit = make_poles_legal(vfit1, z, PSD, w)
+    ma_roots = find_roots(vfit)
+    @show ma_roots
+    vfit
+end
 
 make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::AbstractVector; angletol=1e-13) =
     make_poles_legal(vfit, z, PSD, ones(Float64, length(z)); angletol)
