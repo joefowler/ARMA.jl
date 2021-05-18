@@ -1,4 +1,4 @@
-using ARMA: BarycentricRational, PartialFracRational, roots_pfrac, aaawt
+using ARMA: BarycentricRational, PartialFracRational, roots_pfrac, aaawt, legendre_roots
 using Test
 
 @testset "BarycentricRational" begin
@@ -88,4 +88,14 @@ end
     p = PartialFracRational([1,3,5], [4,5,6], [1, 2, 3])
     expect .+= 1.0 .+ 2z .+ 3*(1.5z.^2 .- 0.5)
     @test all(expect .≈ p(z))
+end
+
+@testset "Legendre roots" begin
+    for testnum=1:5
+        deg = rand(1:8)
+        coef = randn(deg)
+        function F(x) f=coef[1]; for i=2:deg; f+= coef[i]*legendre(x, i-1); end; f; end
+        r = legendre_roots(coef)
+        @test all(abs.(F.(r)) .< 1e-10)
+    end
 end

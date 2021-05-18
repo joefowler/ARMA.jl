@@ -97,3 +97,42 @@ function pfrat_eval(z, pfr::PartialFracRational)
     end
     f = arg_isscalar ? f[1] : reshape(f, size(z))
 end
+
+
+"""
+    legendre_companion(c)
+
+Return the scaled companion matrix for a Legendre series with coefficients `c`.
+Copied from numpy/polynomial.legendre.py
+"""
+function legendre_companion(c::AbstractVector)
+    if length(c) < 2
+        throw(ErrorException("Series must have at least 2 terms (degree ≥ 1)."))
+    elseif length(c)==2
+        return [[-c[1]/c[2]]]
+    end
+    n = length(c)-1
+    scale = collect(1:2:2n-1).^-0.5
+    top = collect(1:n-1).*scale[1:n-1].*scale[2:end]
+    # mat = zeros(eltype(c), n, n)
+    mat = diagm(1=>top, 0=>zeros(eltype(c), n), -1=>top)
+    mat[:, end] .-= (c[1:end-1]/c[end]).*(scale/scale[end])*(n/(2n-1))
+    mat
+end
+
+"""
+    legendre_roots(c)
+
+Return the roots of a Legendre series with coefficients `c`.
+Copied from numpy/polynomial.legendre.py
+"""
+function legendre_roots(c::AbstractVector)
+    if length(c) < 2
+        return eltype(c)[]
+    elseif length(c)==2
+        return [-c[1]/c[2]]
+    end
+    # Rotated companion matrix reduces error, supposedly.
+    m = legendre_companion(c)[end:-1:1, end:-1:1]
+    eigvals(m)
+end

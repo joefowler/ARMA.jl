@@ -125,6 +125,5 @@ function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0
     Wtres = norm(W*model.-Wf)
     ρ = optparam[1:n]
     c = real(optparam[n+1:m+1])
-    λ = typeof(λ0)(λ)  # convert to RCPRoots if needed
     PartialFracRational(λ, ρ, c; polyMin=zmin, polyMax=zmax)
 end
