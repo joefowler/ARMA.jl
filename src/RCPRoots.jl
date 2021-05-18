@@ -27,6 +27,7 @@ function RCPRoots(z::AbstractVector{T}; angletol=1e-12, reltol=1e-12, abstol=1e-
     n = length(z)
     ϕ = angle.(z)
     isreal = abs.(sin.(ϕ)) .< angletol
+    isreal[abs.(z) .< abstol] .= true
     # Values with complex phase w/i angle `angletol` of 0 or ±π are considered real.
     ncomplex = n-sum(isreal)
     if ncomplex%2 != 0

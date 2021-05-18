@@ -60,7 +60,7 @@ function PartialFracRational(λ::AbstractVector{S}, a::AbstractVector{T}, b::Abs
     if b == []
         b = eltype(a)[]
     end
-    λ, a, b = promote(λ, a, b)
+    λ, a, b = promote(float(λ), float(a), float(b))
     polyMin, polyMax = promote(polyMin, polyMax)
 
     n = length(λ)

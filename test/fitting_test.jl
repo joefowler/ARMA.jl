@@ -1,4 +1,4 @@
-using ARMA: partial_frac, vectorfit, RCPRoots
+using ARMA: partial_frac, find_roots, vectorfit, RCPRoots, PartialFracRational
 using Test
 
 @testset "vectorfit" begin
@@ -39,4 +39,16 @@ end
     xtest = LinRange(1.1, 5, 60)
     @test all(f(xtest) .≈ g.(xtest))
     @test all(f8(xtest) .≈ 8g.(xtest))
+end
+
+@testset "find_roots" begin
+    p1 = PartialFracRational([-1, -2], [3, 2])
+    p2 = PartialFracRational([-1, -2], [6, -12], [1])
+    p3 = PartialFracRational([-1, -2], [-6, 24], [-6, 1])
+    pfr = [p1, p2, p3]
+    answers = [[-1.6], [1, 2], [0, 1, 2]]
+    for (p, ans) in zip(pfr, answers)
+        r = find_roots(p)
+        @test all(isapprox.(r, ans; atol=1e-10))
+    end
 end
