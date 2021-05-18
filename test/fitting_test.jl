@@ -1,4 +1,4 @@
-using ARMA: partial_frac, find_roots, vectorfit, RCPRoots, PartialFracRational
+using ARMA: partial_frac, make_poles_legal, find_roots, vectorfit, RCPRoots, PartialFracRational
 using Test
 
 @testset "vectorfit" begin
@@ -51,4 +51,22 @@ end
         r = find_roots(p)
         @test all(isapprox.(r, ans; atol=1e-10))
     end
+end
+
+@testset "make_poles_legal" begin
+    poles = [[-1.5, 45], [1.5, .5], [1.0, 3]]
+    mustchange = [false, true, true]
+    z = LinRange(-1, .9, 25)
+    for (p, expect) in zip(poles, mustchange)
+        pf = PartialFracRational(p, [6., -12], [1.])
+        PSD = pf(z) .+ randn(length(z))
+        pfl = make_poles_legal(pf, z, PSD)
+        @test xor(all(pf.λ .≈ pfl.λ), expect)
+    end
+    pf = PartialFracRational([.98, 1.0], [6., -12], [1.])
+    PSD = pf(z) .+ randn(length(z))
+    @test_throws DimensionMismatch make_poles_legal(pf, z, PSD[1:end-1])
+    @test_throws DimensionMismatch make_poles_legal(pf, z, PSD, ones(Float64, length(z)+5))
+    pfl = make_poles_legal(pf, z, PSD)
+    @test all(abs2.(pfl.λ .- 1) .< 5e-8)
 end
