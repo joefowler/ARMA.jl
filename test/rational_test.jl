@@ -97,6 +97,6 @@ end
         coef = randn(deg)
         function F(x) f=coef[1]; for i=2:deg; f+= coef[i]*legendre(x, i-1); end; f; end
         r = legendre_roots(coef)
-        @test all(abs.(F.(r)) .< 1e-10)
+        @test all(abs.(F.(r)) .< 1e-8)
     end
 end
