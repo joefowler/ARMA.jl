@@ -67,8 +67,8 @@ function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0
     if m < 0
         m = n  # Default to an (n,n) rational function fit
     end
-    if m < n-1 || n<0
-        throw(ErrorException("vectorfit called with degree (n,m)=($n,$m). Requires m ≥ n-1 and n ≥ 0."))
+    if m < n-1
+        throw(ErrorException("vectorfit called with degree (n,m)=($n,$m). Requires m ≥ n-1."))
     end
 
     N = length(z)

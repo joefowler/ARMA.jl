@@ -409,4 +409,5 @@ end
 include("hdf5test.jl")
 include("rcproots_test.jl")
 include("rational_test.jl")
+include("fitting_test.jl")
 end
