@@ -1,4 +1,5 @@
 using ARMA: BarycentricRational, PartialFracRational, roots_pfrac, aaawt, legendre_roots
+using Jacobi
 using Test
 
 @testset "BarycentricRational" begin
