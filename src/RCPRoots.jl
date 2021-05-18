@@ -12,7 +12,7 @@ Describe an array of complex numbers such that for any value `z` in the set,
 `conj(z)` is also. Because `z==conj(z)` for real `z`, real numbers automatically
 satisfy it.
 """
-struct RCPRoots{T<:AbstractVector}
+struct RCPRoots{T<:AbstractVector} <: AbstractVector{T}
     "The array of complex values"
     z::T
     "How many values are complex in vector `z`"
@@ -69,6 +69,16 @@ Base.iterate(rr::RCPRoots, state=1) = state > length(rr.z) ? nothing : (rr.z[sta
 Base.eltype(rr::RCPRoots) = eltype(rr.z)
 Base.real(rr::RCPRoots) = real(rr.z)
 Base.imag(rr::RCPRoots) = imag(rr.z)
+function Base.size(rr::RCPRoots, dim=nothing)
+    if dim === nothing
+        return (length(rr.z),)
+    elseif dim == 1
+        return length(rr.z)
+    elseif dim > 1
+        return 1
+    end
+    throw(ErrorException("arraysize: dimension out of range"))
+end
 
 # """`ccpairs(rr::RCPRoots)` returns an array of 2-element arrays, the pairs of complex-conjugate values."""
 # ccpairs(rr::RCPRoots) = [[i,i+1] for i=1:2:rr.ncomplex]

@@ -97,7 +97,7 @@ function roots_pfrac0(w::AbstractVector, x::AbstractVector)
     if n != length(x)
         throw(ErrorException("roots_pfrac0(w, x) has length(w)=$(length(w)) != length(x)=$(length(x))."))
     end
-    M = Diagonal(x) - w/sum(w)*x'
+    M = diagm(x) - w/sum(w)*x'
     v = eigvals(M)
     # The vector v will contain the (n-1) desired roots, plus 0. Remove the 0.
     _, idx = findmin(abs2.(v))
@@ -120,7 +120,7 @@ function roots_pfrac1(w::AbstractVector, x::AbstractVector)
     if n != length(x)
         throw(ErrorException("roots_pfrac1(w, x) has length(w)=$(length(w)) != length(x)=$(length(x))."))
     end
-    M = Diagonal(x) + w*ones(n)'
+    M = diagm(x) + w*ones(n)'
     r = eigvals(M)
     for i=1:n
         # Take up to 3 Newton steps

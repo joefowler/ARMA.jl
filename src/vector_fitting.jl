@@ -37,15 +37,13 @@
 # Based on Gustavsen, B., & Semlyen, A. (1999). "Rational approximation of frequency domain responses by
 # vector fitting." _IEEE Transactions on Power Delivery_, 14(3), 1052–1061. https://doi.org/10.1109/61.772353
 
-PoleVector = Union{RCPRoots{T}, AbstractVector{T}} where T
-
-vectorfit(z::AbstractVector, f::Function, λ0::PoleVector, m=-1; maxit=10) =
+vectorfit(z::AbstractVector, f::Function, λ0::AbstractVector, m=-1; maxit=10) =
     vectorfit(z, f.(z), ones(eltype(z), length(z)), λ0, m; maxit)
 
-vectorfit(z::AbstractVector, f::Function, wt::AbstractVector, λ0::PoleVector, m=-1; maxit=10) =
+vectorfit(z::AbstractVector, f::Function, wt::AbstractVector, λ0::AbstractVector, m=-1; maxit=10) =
     vectorfit(z, f.(z), wt, λ0, m; maxit)
 
-vectorfit(z::AbstractVector, f::AbstractVector, λ0::PoleVector, m=-1; maxit=10) =
+vectorfit(z::AbstractVector, f::AbstractVector, λ0::AbstractVector, m=-1; maxit=10) =
     vectorfit(z, f, ones(eltype(z), length(z)), λ0, m; maxit)
 
 """
@@ -64,7 +62,7 @@ low-order rational function model for f(z) given samples of f.
 - `m`: the order of the rational function's numerator. Defaults to `n`, but may be any integer ≥ `n-1`.
 - `maxit`: the maximum number of vector fit iterations to perform.
 """
-function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0::PoleVector, m::Integer=-1; maxit=10)
+function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0::AbstractVector, m::Integer=-1; maxit=10)
     n = length(λ0)
     if m < 0
         m = n  # Default to an (n,n) rational function fit
@@ -81,7 +79,7 @@ function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0
     end
 
     # Get types promoted. Final type: P
-    z, f, wt, _ = promote(z, f, wt, real(λ0))
+    z, f, wt, _ = promote(collect(z), f, wt, real(λ0))
     P = eltype(z)
     W = Diagonal(sqrt.(wt))
     Wf = W*f
