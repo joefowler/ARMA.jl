@@ -574,9 +574,6 @@ end
 
 
 include("exact_operations.jl")
-include("RCPRoots.jl")
-include("BarycentricRational.jl")
-include("weightedAAA.jl")
-include("PartialFracRational.jl")
+include("psd_model_fitting.jl")
 
 end # module

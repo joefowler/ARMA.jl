@@ -1,4 +1,4 @@
-using ARMA: vectorfit, RCPRoots
+using ARMA: partial_frac, vectorfit, RCPRoots
 using Test
 
 @testset "vectorfit" begin
@@ -24,4 +24,19 @@ using Test
     @test_throws DimensionMismatch vectorfit(z, f[1:end-1], λ0)
     @test_throws DimensionMismatch vectorfit(z, f, ones(Float64, N-5), λ0)
     @test_throws ErrorException vectorfit(z, f, λ0, length(λ0)-2)
+end
+
+@testset "partial_frac" begin
+    # Rewrite a/∏(z-λ[i]) as ∑ b[i]/z-λ[i]
+    λ = [1, 2+1im, 2-1im]
+    a=4
+    b1 = partial_frac(a, λ)
+    b8 = partial_frac(8a, λ)
+    f = PartialFracRational(λ, b1)
+    f8 = PartialFracRational(λ, b8)
+    g(x) = a/prod(x.-λ)
+
+    xtest = LinRange(1.1, 5, 60)
+    @test all(f(xtest) .≈ g.(xtest))
+    @test all(f8(xtest) .≈ 8g.(xtest))
 end
