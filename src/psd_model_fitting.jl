@@ -36,9 +36,14 @@ function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
 
     aaa_hybrid = aaawt(z, PSD, w, p)
     vfit1 = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
+    clf()
+    loglog(ω, PSD, ".")
+    loglog(ω, vfit1(z), "--")
+
     vfit = make_poles_legal(vfit1, z, PSD, w)
     ma_roots = find_roots(vfit)
     @show ma_roots
+    loglog(ω, vfit(z))
     vfit
 end
 
