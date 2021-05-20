@@ -67,9 +67,9 @@ The fit is done with the power spectrum `PSD` sampled at `z=cos.(ω)` and with s
 function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::AbstractVector, wt::AbstractVector; angletol=1e-13)
     λ = RCPRoots(vfit.λ)
     # Poles are illegal if the absolute value is ≤1 AND if they are real
-    illegalpoles = abs.(λ) .≤ 1
-    illegalpoles[1:ncomplex(λ)] .= false
-    Nbad = sum(illegalpoles)
+    pole_is_illegal = abs.(λ) .≤ 1
+    pole_is_illegal[1:ncomplex(λ)] .= false
+    Nbad = sum(pole_is_illegal)
     if Nbad == 0
         return vfit
     end
@@ -86,7 +86,7 @@ function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::Abs
     # for a sensible, small ϵ that yields a Lorentzian of width ωstep at the given frequency.
     # This vector will be longer than λ by the number of illegal poles in λ.
     legalλ = ComplexF64[]
-    for (p, illegal) in zip(λ, illegalpoles)
+    for (p, illegal) in zip(λ, pole_is_illegal)
         if illegal
             bonus = 1e-7  # Ensure nonzero step even if abs(p) == 1.
             p_tweaked = complex.(p) + ωstep*sqrt(1+bonus-abs2(p))*1im
@@ -102,9 +102,10 @@ function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::Abs
     zscaled = 2(z.-vfit.polyMin)/(vfit.polyMax-vfit.polyMin) .- 1
     Mrem = hcat([legendre.(zscaled, i) for i=0:vfit.m-vfit.n]...)
     M = [Mpf Mrem]
-    wtf = wt.*PSD
+    W = Diagonal(sqrt.(wt))
+    Wf = W*PSD
     while length(legalλ) > vfit.n
-        param = (Diagonal(wt)*M)\wtf
+        param = (W*M)\Wf
         model = real(M*param)
         n = length(legalλ)
         importance = (abs2.(Diagonal(wt)*M[:,1:n]*Diagonal(param[1:n])))'*ones(N)
@@ -135,7 +136,7 @@ function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::Abs
     end
     @assert length(legalλ) == vfit.n
 
-    param = (Diagonal(wt)*M)\wtf
+    param = (W*M)\Wf
     @assert length(param) == vfit.m+1
     a = param[1:vfit.n]
     b = param[vfit.n+1:end]
@@ -237,7 +238,11 @@ function find_roots(vfit::PartialFracRational; steptol=1e-13)
             x = xnew
             abs(actual_step) < steptol && break
         end
-        r[i] = x
+        if eltype(r) <: Real
+            r[i] = real(x)
+        else
+            r[i] = x
+        end
     end
     RCPRoots(r)
 end

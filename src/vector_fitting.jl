@@ -81,6 +81,9 @@ function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0
     # Get types promoted. Final type: P
     z, f, wt, _ = promote(collect(z), f, wt, real(λ0))
     P = eltype(z)
+
+    # Notice that W and Wf are the _square root_ of the `wt` vector passed in.
+    # That's not my favorite way to handle, but it matches the conventions of Gustavsen & Semlyen.
     W = Diagonal(sqrt.(wt))
     Wf = W*f
 
@@ -104,8 +107,8 @@ function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0
         end
 
         D = Diagonal(f)*C
-        M = W*hcat(C, Φ, D)
-        optparam = M\Wf
+        WM = W*[C Φ D]
+        optparam = WM\Wf
         # ρ = optparam[1:n]
         # c = optparam[n+1:m+1]
         b = optparam[m+2:end]
@@ -118,12 +121,14 @@ function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0
     for k=1:n
         C[:,k] .= 1.0 ./ (z.-λ[k])
     end
-    M = W*hcat(C, Φ)
-    optparam = M\Wf
-    model = real(hcat(C, Φ)*optparam)
+    WM = W*[C Φ]
+    optparam = WM\Wf
+    model = real([C Φ]*optparam)
 
-    Wtres = norm(W*model.-Wf)
     ρ = optparam[1:n]
     c = real(optparam[n+1:end])
+    # Wtres = norm(W*model.-Wf)
+    # @show Wtres, ρ, c
+
     PartialFracRational(λ, ρ, c; polyMin=zmin, polyMax=zmax)
 end
