@@ -89,7 +89,7 @@ function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0
 
     # Use Legendre polynomials for the basis
     zmin, zmax = minimum(z), maximum(z)
-    zscaled = (z.-zmin)/(zmax-zmin)
+    zscaled = 2(z.-zmin)/(zmax-zmin) .- 1
     for k=1:m-(n-1)
         Φ[:,k] .= legendre.(zscaled, k-1)
     end
