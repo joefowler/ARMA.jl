@@ -61,9 +61,9 @@ end
     m = ARMAModel(rs, ps, variance)
     @test m.p == p
     @test m.q == q
-    n = ARMAModel(m.thetacoef, m.phicoef)
-    @test m.thetacoef == n.thetacoef
-    @test m.phicoef == n.phicoef
+    n = ARMAModel(m.θcoef, m.ϕcoef)
+    @test m.θcoef == n.θcoef
+    @test m.ϕcoef == n.ϕcoef
     @test similar_list(m.roots_, n.roots_, 1e-7)
     @test similar_list(m.poles, n.poles, 1e-7)
 end
@@ -113,7 +113,7 @@ end
     end
 
     # Loop over all the models specified by their rational function representation
-    # in thetas[] and phis[]. For each model, construct it all 3 ways (theta,phi;
+    # in thetas[] and phis[]. For each model, construct it all 3 ways (θ,ϕ;
     # roots, poles, and variance; or sum-of-exponentials). Verify that the resulting
     # model has the same covariance and other key properties.
 
@@ -136,10 +136,10 @@ end
         expbases = 1.0 ./ poles
 
         # We'll be working with q+1 equations to find initial values
-        # of psi: the Taylor expansion coefficients of theta(z)/phi(z).
+        # of psi: the Taylor expansion coefficients of θ(z)/ϕ(z).
         # See BD (3.3.3) for the q+1 initial equations and  (3.3.4) for the
         # homogeneous equations beyond the first q+1. Careful with the sign conventions,
-        # b/c BD uses phi(z) = 1 - (phi1*z + phi2*z^2 + ...), while I prefer a + sign.
+        # b/c BD uses ϕ(z) = 1 - (ϕ1*z + ϕ2*z^2 + ...), while I prefer a + sign.
         phpad = fill(0.0, q+1)
         if q>p
             phpad[1:p+1] = phcoef
@@ -228,29 +228,29 @@ end
 
         # D) Check that the model rational function representation matches.
         if m1.q > 0
-            maxcoef = maximum(abs.(m1.thetacoef))
-            @test all(abs.(m1.thetacoef .- m2.thetacoef) .< EPSILON*maxcoef)
-            # At this point, the m3 theta polynomial is not at all guaranteed to match
+            maxcoef = maximum(abs.(m1.θcoef))
+            @test all(abs.(m1.θcoef .- m2.θcoef) .< EPSILON*maxcoef)
+            # At this point, the m3 θ polynomial is not at all guaranteed to match
             # the others, so omit that test for now. If the model_covariance matches,
             # this test is not critical, but we'll think over how it can be improved.
         end
 
-        maxcoef = maximum(abs.(m1.phicoef))
-        @test all(abs.(m1.phicoef.-m2.phicoef) .< EPSILON*maxcoef)
-        @test all(abs.(m1.phicoef.-m3.phicoef) .< EPSILON*maxcoef)
+        maxcoef = maximum(abs.(m1.ϕcoef))
+        @test all(abs.(m1.ϕcoef.-m2.ϕcoef) .< EPSILON*maxcoef)
+        @test all(abs.(m1.ϕcoef.-m3.ϕcoef) .< EPSILON*maxcoef)
 
         # E) Test model_psd. This isn't easy to see how to test, other than re-implement
         # the model_psd code itself!
         N = 50
         freq = collect(range(0, stop=0.5, length=N))
         z = exp.(-2im*pi *freq)
-        numer = m1.thetacoef[1] .+ fill(0.0im, N)
+        numer = m1.θcoef[1] .+ fill(0.0im, N)
         for i=1:m1.q
-            numer .+= m1.thetacoef[i+1] * (z.^i)
+            numer .+= m1.θcoef[i+1] * (z.^i)
         end
-        denom = m1.phicoef[1] .+ fill(0.0im, N)
+        denom = m1.ϕcoef[1] .+ fill(0.0im, N)
         for i=1:m1.p
-            denom .+= m1.phicoef[i+1] * (z.^i)
+            denom .+= m1.ϕcoef[i+1] * (z.^i)
         end
         psd = abs2.(numer ./ denom)
         threshold = 1e-3 * maximum(abs.(psd[1]))
@@ -326,13 +326,13 @@ end
     Phi = fill(0.0, N, N)
     for i=1:model.p+1
         for col=1:N+1-i
-            Phi[col+i-1,col] = model.phicoef[i]
+            Phi[col+i-1,col] = model.ϕcoef[i]
         end
     end
     Theta = fill(0.0, N, N)
     for i=1:model.q+1
         for col=1:N+1-i
-            Theta[col+i-1,col] = model.thetacoef[i]
+            Theta[col+i-1,col] = model.θcoef[i]
         end
     end
     for i=1:5
@@ -375,7 +375,7 @@ arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .<
         L = cholesky(R).L
         x = fill(0.0, N)
         y = fill(0.0, N)
-        x[1:model.p+1] = model.phicoef
+        x[1:model.p+1] = model.ϕcoef
         y[1] = x[1]
         Phi = Toeplitz(x, y)
         # must force symmetry, or numerical precision will make cholesky() fail.

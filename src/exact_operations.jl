@@ -65,22 +65,22 @@ these operations require `length(v) <= N` and `n <= N`."""
 mutable struct ARMASolver
     p         ::Int
     q         ::Int
-    phicoef   ::Vector{Float64}
+    ϕcoef   ::Vector{Float64}
     covarIV   ::Vector{Float64}
     # RR = Phi*R*Phi', a banded matrix = RRt + RRu
     RRu       ::Matrix{Float64}   # The upper left (p)x(p+q) corner of RR-RRt
     RRt       ::Vector{Float64}   # The banded Toeplitz part of RR
     LL        ::SparseMatrixCSC{Float64}   # LL = lower Cholesky factor of RR, also banded
 
-    function ARMASolver(p, q, phicoef, covarIV, RRu, RRt, LL)
+    function ARMASolver(p, q, ϕcoef, covarIV, RRu, RRt, LL)
         @assert p>=0
         @assert q>=0
-        @assert p+1 == length(phicoef)
+        @assert p+1 == length(ϕcoef)
         @assert length(covarIV) >= 1+q
         @assert length(covarIV) >= p
-        @assert phicoef[1] == 1.0
+        @assert ϕcoef[1] == 1.0
 
-        new(p, q, phicoef, covarIV, RRu, RRt, LL)
+        new(p, q, ϕcoef, covarIV, RRu, RRt, LL)
     end
 end
 
@@ -92,7 +92,7 @@ function ARMASolver(m::ARMAModel, N::Integer)
     Nbands = max(m.p, m.q+1)
     x = fill(0.0, Nc)
     y = fill(0.0, Nc)
-    x[1:m.p+1] = m.phicoef
+    x[1:m.p+1] = m.ϕcoef
     y[1] = x[1]
     Phi = Toeplitz(x, y)
     # Hermitian enforces exact symetry even after round-off error.
@@ -139,7 +139,7 @@ function ARMASolver(m::ARMAModel, N::Integer)
         S = sum( LL[ r,mincol:r-1] .^ 2)
         LL[r,r] = sqrt(Rt - S)
     end
-    ARMASolver(m.p, m.q, m.phicoef, covar, RR_rectcorner, RR_toeplitz, LL)
+    ARMASolver(m.p, m.q, m.ϕcoef, covar, RR_rectcorner, RR_toeplitz, LL)
 end
 
 
@@ -155,7 +155,7 @@ noise realizations is the identity matrix.
 In place of `v`, a matrix can be used. Its columns will be whitened.
 """
 function whiten(solver::ARMASolver, v::AbstractVector)
-    Phiv = convolve_same(v, solver.phicoef)
+    Phiv = convolve_same(v, solver.ϕcoef)
     nv = length(v)
     if nv  < size(solver.LL)[1]
         return solver.LL[1:nv, 1:nv] \ Phiv
@@ -189,7 +189,7 @@ function unwhiten(solver::ARMASolver, w::AbstractVector)
     else
         x = solver.LL * w
     end
-    deconvolve_same(x, solver.phicoef)
+    deconvolve_same(x, solver.ϕcoef)
 end
 
 function unwhiten(solver::ARMASolver, M::AbstractMatrix)
@@ -205,7 +205,7 @@ Use `solver` for an ARMA model to multiply the vector `v` by the covariance matr
 """
 function mult_covariance(solver::ARMASolver, v::AbstractVector)
     # Reversing before and after deconvolve ensures that we are solving Phi', not Phi.
-    v1 = reverse(deconvolve_same(reverse(v), solver.phicoef))
+    v1 = reverse(deconvolve_same(reverse(v), solver.ϕcoef))
 
     # Multiply by RR, the "moving-average-only R matrix".
     Nv = length(v1)
@@ -234,7 +234,7 @@ function mult_covariance(solver::ARMASolver, v::AbstractVector)
     else
         x = solver.RRu[1:Nv,1:Nv] * v1
     end
-    deconvolve_same(x, solver.phicoef)
+    deconvolve_same(x, solver.ϕcoef)
 end
 
 function mult_covariance(solver::ARMASolver, M::AbstractMatrix)
@@ -258,7 +258,7 @@ function solve_covariance(solver::ARMASolver, v::AbstractVector)
     else
         v2 = solver.LL' \ v1
     end
-    reverse(convolve_same(reverse(v2), solver.phicoef))
+    reverse(convolve_same(reverse(v2), solver.ϕcoef))
 end
 
 function solve_covariance(solver::ARMASolver, M::AbstractMatrix)
