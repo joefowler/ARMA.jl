@@ -15,6 +15,9 @@ include("weightedAAA.jl")
 include("PartialFracRational.jl")
 include("vector_fitting.jl")
 
+using PyPlot
+fit_psd(ω::AbstractVector, PSD::Function, pulsemodel::AbstractVector, p, q=-1) = fit_psd(PSD.(ω), pulsemodel, p, q)
+
 function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
     if p<0
         throw(DomainError("fit_psd got AR order p=$p, requires at least 0."))
@@ -32,7 +35,9 @@ function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
         throw(DimensionMismatch("fit_psd: length(PSD) $N != length(rfft(pulsemodel)) $(length(pulseFT2))"))
     end
     w = pulseFT2 ./ PSD.^3
-    w[1] = 0
+    # Don't let the DC bin have ZERO weight, else model likes to go negative, particularly
+    # If there's lots of "action" (poles) near ω=0, or cos(ω)=1.
+    w[1] = w[2]*.01
 
     aaa_hybrid = aaawt(z, PSD, w, p)
     vfit1 = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
