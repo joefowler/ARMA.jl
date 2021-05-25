@@ -12,9 +12,9 @@ Describe an array of complex numbers such that for any value `z` in the set,
 `conj(z)` is also. Because `z==conj(z)` for real `z`, real numbers automatically
 satisfy it.
 """
-struct RCPRoots{T<:AbstractVector} <: AbstractVector{T}
+struct RCPRoots{T,V<:AbstractVector{T}} <: AbstractVector{T}
     "The array of complex values"
-    z::T
+    z::V
     "How many values are complex in vector `z`"
     ncomplex::Int
 end
