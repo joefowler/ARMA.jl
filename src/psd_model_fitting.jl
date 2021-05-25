@@ -34,6 +34,8 @@ function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
     if N != length(pulseFT2)
         throw(DimensionMismatch("fit_psd: length(PSD) $N != length(rfft(pulsemodel)) $(length(pulseFT2))"))
     end
+
+    clf()
     w = pulseFT2 ./ PSD.^3
     # Don't let the DC bin have ZERO weight, else model likes to go negative, particularly
     # If there's lots of "action" (poles) near ω=0, or cos(ω)=1.
@@ -41,15 +43,26 @@ function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
 
     aaa_hybrid = aaawt(z, PSD, w, p)
     vfit1 = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
-    clf()
-    loglog(ω, PSD, ".")
-    loglog(ω, vfit1(z), "--")
+    loglog(ω, PSD, ".-", label="Input data")
+    loglog(ω, vfit1(z), "--", label="Vfit 1 (illegal poles)")
 
     vfit = make_poles_legal(vfit1, z, PSD, w)
+    loglog(ω, vfit(z), label="Vfit 2 (models legal)")
+    @show vfit.λ
     ma_roots = find_roots(vfit)
     @show ma_roots
-    loglog(ω, vfit(z))
-    vfit
+    # ma_roots = make_roots_legal(ma_roots)
+    # @show ma_roots
+
+    zpoles = exp.(acosh.(vfit.λ))
+    zroots = exp.(acosh.(complex(ma_roots[1:end])))
+    println()
+    @show zpoles
+    @show zroots
+    legend()
+    var = mean(PSD)
+    model = ARMAModel(vfit)
+    vfit, model
 end
 
 make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::AbstractVector; angletol=1e-13) =
@@ -155,7 +168,6 @@ function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::Abs
         a[i] = reala+imaga*1im
         a[i+1] = reala-imaga*1im
     end
-    # model = real(M*param)
     PartialFracRational(legalλ.z, a, real(b))
 end
 
@@ -164,7 +176,7 @@ end
     partial_frac(num, poles::Vector)
 
 Compute the partial fraction decomposition of num / Π_i=1:n (z-α[i])
-as ∑_i=1:n r[i]/(z-α[i]). Return the coefficient vector `r`.
+as ∑ i=1:n r[i]/(z-α[i]). Return the coefficient vector `r`.
 
 Generally P(z)/Q(z) = ∑ P(α[i])/Q'(α[i]) * 1/(z-α[i])
 """
@@ -209,7 +221,7 @@ function find_roots(vfit::PartialFracRational; steptol=1e-13)
         rough_roots = roots_pfrac1(-bc, vcat(vfit.λ, β))
     end
 
-    rough_roots = RCPRoots(rough_roots)
+    rough_roots = RCPRoots(rough_roots; abstol=3e-12, reltol=3e-12)
 
     # Poor conditioning can make the eigenvalue method yield imperfect values. "Polish" those results
     # by a few Newton-Raphson steps

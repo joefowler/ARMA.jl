@@ -394,11 +394,9 @@ function ARMAModel(psd::PartialFracRational)
     ϕcoef = polynomial_from_roots(zpoles)
     θcoef = polynomial_from_roots(zroots)
     covarIV, expbases, expampls = _covar_repr(θcoef, ϕcoef)
-    bases = 1.0 ./ zpoles
-    amplitudes = 0*bases
     psdmodel(f) = psd(cos(2π*f))
     acmodel(x) = 1.0
-    ARMAModel(p,q,zroots,zpoles,θcoef,ϕcoef,covarIV,bases,amplitudes,psdmodel,acmodel)
+    ARMAModel(p,q,zroots,zpoles,θcoef,ϕcoef,covarIV,expbases,expampls,psdmodel,acmodel)
 end
 
 
