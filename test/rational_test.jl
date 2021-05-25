@@ -67,7 +67,7 @@ end
     # Check that b=[1] and b=[1,0.4] are greater than the same Pfrac with b=[0]
     p4 = PartialFracRational([1,2], [3,4.0], [1])
     p5 = PartialFracRational([1,2], [3,4.0], [1, .4])
-    @test all((p4(z).-f1 .== 1) .| isinf.(f1))
+    @test all((p4(z).-f1 .≈ 1) .| isinf.(f1) .| isnan.(f1))
     @test all((f1 .< p5(z)) .| isinf.(f1))
 
     # Check it behaves with implicit or explicit zero partial fraction terms.
