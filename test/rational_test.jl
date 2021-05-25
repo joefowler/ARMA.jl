@@ -1,5 +1,5 @@
-using ARMA: BarycentricRational, PartialFracRational, roots_pfrac, aaawt, legendre_roots
-using Jacobi
+using ARMA: BarycentricRational, PartialFracRational, roots_pfrac, aaawt, legendre_roots, chebyshev_roots
+using Jacobi, Polynomials
 using Test
 
 @testset "BarycentricRational" begin
@@ -87,16 +87,21 @@ end
     @test all(expect .≈ p(z))
 
     p = PartialFracRational([1,3,5], [4,5,6], [1, 2, 3])
-    expect .+= 1.0 .+ 2z .+ 3*(1.5z.^2 .- 0.5)
+    expect .+= 1.0 .+ 2z .+ 3*(2z.^2 .- 1)
     @test all(expect .≈ p(z))
 end
 
-@testset "Legendre roots" begin
+@testset "Legendre/Chebyshev roots" begin
     for testnum=1:5
-        deg = rand(1:8)
+        deg = rand(2:8)
         coef = randn(deg)
-        function F(x) f=coef[1]; for i=2:deg; f+= coef[i]*legendre(x, i-1); end; f; end
+        function L(x) f=coef[1]; for i=2:deg; f+= coef[i]*legendre(x, i-1); end; f; end
         r = legendre_roots(coef)
-        @test all(abs.(F.(r)) .< 1e-8)
+        @test all(abs.(L.(r)) .< 1e-8)
+
+        CT = ChebyshevT(coef)
+        C(x) = evalpoly(x, CT, false)  # allow out-of-domain evaluation
+        r = chebyshev_roots(coef)
+        @test all(abs.(C.(r)) .< 1e-8)
     end
 end

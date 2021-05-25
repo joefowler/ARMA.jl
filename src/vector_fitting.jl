@@ -14,7 +14,7 @@
 #
 # Vector fitting approaches this nonlinear problem by rewriting N(z) and D(z) in barycentric form. That
 # is, we write N(z) as the product of the partial-fraction rational function n(z) with some set of n nodes
-# called λ, times the Legendre-form polynomial of degree n with roots at these nodes λ.
+# called λ, times the Lagrange-form polynomial of degree n with roots at these nodes λ.
 # n(z) = ∑ i=1:n a[i]/(z-λ[i])
 # N(z) = n(z) ∏ i=1:n (z-λ[i])
 #
@@ -90,11 +90,12 @@ function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0
     C = Array{Complex{P}}(undef, N, n)
     Φ = Array{Complex{P}}(undef, N, m-(n-1))
 
-    # Use Legendre polynomials for the basis
+    # Use Chebyshev polynomials for the basis
     zmin, zmax = minimum(z), maximum(z)
     zscaled = 2(z.-zmin)/(zmax-zmin) .- 1
     for k=1:m-(n-1)
-        Φ[:,k] .= legendre.(zscaled, k-1)
+        cmodel = ChebyshevT([zeros(Complex{P}, k-1)..., 1.0])
+        Φ[:,k] .= evalpoly.(zscaled, cmodel, false)  # false = don't check for zscaled ∈ [-1,1].
     end
     b = nothing
     model = nothing

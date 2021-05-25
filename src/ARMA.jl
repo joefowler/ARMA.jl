@@ -224,7 +224,6 @@ function ARMAModel(roots_::AbstractVector, poles::AbstractVector, variance::Real
 
     # Now that we know the normalized model's covariance, rescale
     # θ, covariance, and the exponential amplitudes to correct it.
-    @show covarIV, variance
     covarIV *= sign(covarIV[1])
     scale = sqrt(real(variance / covarIV[1]))
     covarIV .*= variance / covarIV[1]

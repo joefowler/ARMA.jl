@@ -92,9 +92,8 @@ function pfrat_eval(z, pfr::PartialFracRational)
     for i=1:pfr.n
         f .+= pfr.a[i]./(zvec.-pfr.λ[i])
     end
-    for i=0:pfr.m-pfr.n
-        f .+= pfr.b[i+1]*legendre.(zscaled, i)
-    end
+    remainder = ChebyshevT(pfr.b)
+    f .+= evalpoly.(zscaled, remainder, false)
     f = arg_isscalar ? f[1] : reshape(f, size(z))
 end
 
@@ -103,7 +102,7 @@ end
     legendre_companion(c)
 
 Return the scaled companion matrix for a Legendre series with coefficients `c`.
-Copied from numpy/polynomial.legendre.py
+Copied from numpy/polynomial/legendre.py
 """
 function legendre_companion(c::AbstractVector)
     if length(c) < 2
@@ -124,7 +123,7 @@ end
     legendre_roots(c)
 
 Return the roots of a Legendre series with coefficients `c`.
-Copied from numpy/polynomial.legendre.py
+Copied from numpy/polynomial/legendre.py
 """
 function legendre_roots(c::AbstractVector)
     if length(c) < 2
@@ -134,5 +133,46 @@ function legendre_roots(c::AbstractVector)
     end
     # Rotated companion matrix reduces error, supposedly.
     m = legendre_companion(c)[end:-1:1, end:-1:1]
+    eigvals(m)
+end
+
+
+"""
+    chebyshev_companion(c)
+
+Return the scaled companion matrix for a Chebyshev series with coefficients `c`.
+Copied from numpy/polynomial/chebyshev.py
+"""
+function chebyshev_companion(c::AbstractVector)
+    if length(c) < 2
+        throw(ErrorException("Series must have at least 2 terms (degree ≥ 1)."))
+    elseif length(c)==2
+        return [[-c[1]/c[2]]]
+    end
+    n = length(c)-1
+    scale = fill(sqrt(0.5), n)
+    scale[1] = 1.0
+
+    top = scale[1:n-1]*sqrt(0.5)
+    # mat = zeros(eltype(c), n, n)
+    mat = diagm(1=>top, 0=>zeros(eltype(c), n), -1=>top)
+    mat[:, end] .-= (c[1:end-1]/c[end]).*(scale/scale[end])*0.5
+    mat
+end
+
+"""
+    chebyshev_roots(c)
+
+Return the roots of a Chebyshev series with coefficients `c`.
+Copied from numpy/polynomial/chebyshev.py
+"""
+function chebyshev_roots(c::AbstractVector)
+    if length(c) < 2
+        return eltype(c)[]
+    elseif length(c)==2
+        return [-c[1]/c[2]]
+    end
+    # Rotated companion matrix reduces error, supposedly.
+    m = chebyshev_companion(c)[end:-1:1, end:-1:1]
     eigvals(m)
 end

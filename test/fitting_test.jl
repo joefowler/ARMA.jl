@@ -6,7 +6,7 @@ using Test
     p = 4
     z = LinRange(-1, 1, N)
     z0 = .5+.1im
-    σ = 0.2
+    σ = 0.1  # noise level
     f = σ*randn(N).+20 .- 1.0 ./ (z.-1.1) .+ 1.0 ./ (z.+1.1) .+ real(1.0 ./ (z.+z0) .+ 1.0 ./ (z.+conj(z0)))
     wt = ones(N)
     λ0 = complex(randn(p))
