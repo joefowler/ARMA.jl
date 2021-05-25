@@ -43,7 +43,7 @@ the effect of a multiple pole can be approximated as closely as needed by two ne
 struct PartialFracRational{T <: AbstractVector, U <: Number}
     λ::T  # poles
     a::T  # residues
-    b::T  # coefficients of the remainder polynomial
+    b::T  # coefficients of the remainder polynomial, a Chebyshev series
 
     m::Int  # degree of the numerator polynomial
     n::Int  # degree of the denominator polynomial
@@ -88,12 +88,11 @@ function pfrat_eval(z, pfr::PartialFracRational)
     zscaled = 2(zvec .- pfr.polyMin)/(pfr.polyMax-pfr.polyMin) .- 1
     # Make sure to end up with at least a Float, but complex if any of {z, pfr.a, or pfr.polyMin} are complex.
     T = promote_type(eltype(z), eltype(pfr.a), typeof(pfr.polyMin), Float64)
-    f = zeros(T, length(zvec))
+    remainder = ChebyshevT(pfr.b)
+    f = evalpoly.(zscaled, remainder, false)
     for i=1:pfr.n
         f .+= pfr.a[i]./(zvec.-pfr.λ[i])
     end
-    remainder = ChebyshevT(pfr.b)
-    f .+= evalpoly.(zscaled, remainder, false)
     f = arg_isscalar ? f[1] : reshape(f, size(z))
 end
 

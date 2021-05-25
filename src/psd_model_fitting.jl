@@ -105,7 +105,11 @@ function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::Abs
 
     Mpf = hcat([1.0 ./ (z.-L) for L in legalλ]...)
     zscaled = 2(z.-vfit.polyMin)/(vfit.polyMax-vfit.polyMin) .- 1
-    Mrem = hcat([legendre.(zscaled, i) for i=0:vfit.m-vfit.n]...)
+    Mrem = ones(eltype(zscaled), N, vfit.m+1-vfit.n)
+    for i=1:vfit.m-vfit.n
+        Cheb = ChebyshevT([zeros(i)..., 1.0])
+        Mrem[:, i+1] = Cheb.(zscaled)
+    end
     M = [Mpf Mrem]
     W = Diagonal(sqrt.(wt))
     Wf = W*PSD
@@ -194,7 +198,7 @@ function find_roots(vfit::PartialFracRational; steptol=1e-13)
         a = vfit.a / α
         bc = zeros(ComplexF64, q)
         β = ComplexF64[]
-        β = legendre_roots(real(vfit.b))
+        β = chebyshev_roots(real(vfit.b))
         for i=1:p
             poles = [vfit.λ[i], β...]
             pfc = partial_frac(a[i], poles)
@@ -209,23 +213,18 @@ function find_roots(vfit::PartialFracRational; steptol=1e-13)
 
     # Poor conditioning can make the eigenvalue method yield imperfect values. "Polish" those results
     # by a few Newton-Raphson steps
+    remainder = ChebyshevT(vfit.b)
     function F(x)
-        f0 = 0.0+0im
+        f0 = evalpoly.(complex(x), remainder, false)
         for (ρ, λ) in zip(vfit.a, vfit.λ)
             f0 += ρ/(x-λ)
-        end
-        for (i, b) in zip(0:q-p, vfit.b)
-            f0 += b*legendre(x, i)
         end
         f0
     end
     function dFdx(x)
-        f0 = 0.0+0im
+        f0 = evalpoly.(complex(x), derivative(remainder), false)
         for (ρ, λ) in zip(vfit.a, vfit.λ)
             f0 -= ρ/(x-λ)^2
-        end
-        for (i, b) in zip(1:q-p, vfit.b[2:end])  # skip the Legendre0, b/c its deriv = 0.
-            f0 += b*dlegendre(x, i)
         end
         f0
     end

@@ -65,7 +65,7 @@ these operations require `length(v) <= N` and `n <= N`."""
 mutable struct ARMASolver
     p         ::Int
     q         ::Int
-    ϕcoef   ::Vector{Float64}
+    ϕcoef     ::Vector{Float64}
     covarIV   ::Vector{Float64}
     # RR = Phi*R*Phi', a banded matrix = RRt + RRu
     RRu       ::Matrix{Float64}   # The upper left (p)x(p+q) corner of RR-RRt
