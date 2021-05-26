@@ -100,9 +100,8 @@ mutable struct ARMAModel
     expbases  ::Vector{ComplexF64}
     expampls  ::Vector{ComplexF64}
     psdmodel  ::Function
-    acmodel   ::Function
 
-    function ARMAModel(p,q,roots_,poles,θcoef,ϕcoef,covarIV,expbases,expampls,psdmodel,acmodel)
+    function ARMAModel(p,q,roots_,poles,θcoef,ϕcoef,covarIV,expbases,expampls,psdmodel)
         @assert p == length(poles)
         @assert q == length(roots_)
         @assert all(abs2.(poles) .> 1)
@@ -118,7 +117,7 @@ mutable struct ARMAModel
         # Note that these consistency checks don't cover everything. Specifically, we
         # do not test the consistency of the 3 representations with each other. That's
         # done only in the 3 outer constructors.
-        new(p,q,roots_,poles,θcoef,ϕcoef,covarIV,expbases,expampls,psdmodel,acmodel)
+        new(p,q,roots_,poles,θcoef,ϕcoef,covarIV,expbases,expampls,psdmodel)
     end
 end
 
@@ -197,8 +196,7 @@ function ARMAModel(θcoef::Vector, ϕcoef::Vector)
 
     covarIV, expbases, expampls = _covar_repr(θ, ϕ)
     psdmodel(f) = model_psd_from_coef(f, θ, ϕ)
-    acmodel(t) = 1.0
-    ARMAModel(p,q,roots_,poles,θ,ϕ,covarIV,expbases,expampls,psdmodel,acmodel)
+    ARMAModel(p,q,roots_,poles,θ,ϕ,covarIV,expbases,expampls,psdmodel)
 end
 
 WhiteModel() = ARMAModel([1.0], [1.0])
@@ -241,8 +239,7 @@ function ARMAModel(roots_::AbstractVector, poles::AbstractVector, variance::Real
     scale = sqrt(real(variance / covarIV[1]))
     covarIV .*= variance / covarIV[1]
     psdmodel(f) = model_psd_from_coef(f, θcoef, ϕcoef)
-    acmodel(t) = 1.0
-    ARMAModel(p,q,roots_,poles,θcoef*scale,ϕcoef,covarIV,expbases,expampls*scale,psdmodel,acmodel)
+    ARMAModel(p,q,roots_,poles,θcoef*scale,ϕcoef,covarIV,expbases,expampls*scale,psdmodel)
 end
 
 
@@ -377,9 +374,8 @@ function ARMAModel(bases::AbstractVector, amplitudes::AbstractVector, covarIV::A
     gammanorm,_,_ = _covar_repr(θcoef,ϕcoef)
     θcoef .*= sqrt(gamma[1]/gammanorm[1])
     psdmodel(f) = model_psd_from_coef(f, θcoef, ϕcoef)
-    acmodel(t) = 1.0
 
-    ARMAModel(p,q,roots_,poles,θcoef,ϕcoef,gamma[1:max(p,q+1)],bases,amplitudes,psdmodel,acmodel)
+    ARMAModel(p,q,roots_,poles,θcoef,ϕcoef,gamma[1:max(p,q+1)],bases,amplitudes,psdmodel)
 end
 
 # Construct ARMAModel from a partial-fraction representation of its power spectral density.
@@ -395,8 +391,7 @@ function ARMAModel(psd::PartialFracRational)
     θcoef = polynomial_from_roots(zroots)
     covarIV, expbases, expampls = _covar_repr(θcoef, ϕcoef)
     psdmodel(f) = psd(cos(2π*f))
-    acmodel(x) = 1.0
-    ARMAModel(p,q,zroots,zpoles,θcoef,ϕcoef,covarIV,expbases,expampls,psdmodel,acmodel)
+    ARMAModel(p,q,zroots,zpoles,θcoef,ϕcoef,covarIV*120,expbases,expampls*120,psdmodel)
 end
 
 
