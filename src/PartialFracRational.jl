@@ -3,15 +3,15 @@
 
 Represent an order `(m,n)` rational function in partial fraction form. That is, as
 
-    f(z) = Σ i=1:n a[i]/(z-λ[i]) + Σ i=0:(m-n) b[i+1]*Legendre_i(zs)
+    f(z) = Σ i=1:n a[i]/(z-λ[i]) + Σ i=0:(m-n) b[i+1]*T_i(zs)
 
 where the first sum is the partial fraction expansion, and the second is the polynomial remainder, expanded
-in terms of Legendre polynomials. The remainder argument `zs` is equal to `z` by default but can be changed
+in terms of Chebyshev polynomials. The remainder argument `zs` is equal to `z` by default but can be changed
 to an affine transformation of `z` instead.
-- λ[1:n] are the simple poles of f
-- a[1:n] are the residues at those poles
-- b[1:m-n+1] are the coefficients of the Legendre polynomial expansion
-- Legendre_i is the Legendre polynomial of degree i
+- `λ[1:n]` are the simple poles of f
+- `a[1:n]` are the residues at those poles
+- `b[1:m-n+1]` are the coefficients of the Chebyshev polynomial expansion
+- `T_i` is the Chebyshev polynomial of degree i
 
 This object cannot accomodate poles with multiplicity > 1, unfortunately. In practice, however,
 the effect of a multiple pole can be approximated as closely as needed by two nearby poles.
@@ -25,15 +25,15 @@ the effect of a multiple pole can be approximated as closely as needed by two ne
 # Arguments
 - `λ`: vector of poles
 - `a`: vector of residues (must be same length as `λ`)
-- `b`: vector of coefficients of Legendre polynominals in the remainder. If `b` is omitted, the remainder
+- `b`: vector of coefficients of Chebyshev polynominals in the remainder. If `b` is omitted, the remainder
   is assumed to be zero. If both `λ` and `a` are omitted, no partial fractions are assumed. They cannot
   all be omitted.
 
 # Keyword arguments
 - `polyMin::Number=-1`
-- `polyMax::Number=+1`: If the usual domain of the Legendre polynomials [-1,+1] is
+- `polyMax::Number=+1`: If the usual domain of the Chebyshev polynomials [-1,+1] is
     not appropriate for this problem, these values can be changed so that `[polyMin,polyMax]` is affine
-    tranformed to [-1,+1] before computing the Legendre terms. These values affect _only_ the remainder terms,
+    tranformed to [-1,+1] before computing the Chebyshev terms. These values affect _only_ the remainder terms,
     not the computation of the partial fraction terms. These values have no effect when
     `length(b)` ≤ 1 (i.e., the remainder polynominal is a constant).
 
