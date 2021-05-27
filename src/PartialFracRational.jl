@@ -72,7 +72,7 @@ function PartialFracRational(λ::AbstractVector{S}, a::AbstractVector{T}, b::Abs
 end
 
 Base.:*(scale::Number, pfr::PartialFracRational) = Base.:*(pfr, scale)
-Base.:*(pfr::PartialFracRational, scale::Number) = PartialFracRational(pfr.λ, pfr.a*scale, pfr.b*scale; polyMin, polyMax)
+Base.:*(pfr::PartialFracRational, scale::Number) = PartialFracRational(pfr.λ, pfr.a*scale, pfr.b*scale; pfr.polyMin, pfr.polyMax)
 
 
 (pfr::PartialFracRational)(z) = pfrat_eval(z, pfr)
