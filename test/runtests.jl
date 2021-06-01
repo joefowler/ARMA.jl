@@ -1,12 +1,13 @@
-using ARMA, Polynomials
+using ARMA
 using LinearAlgebra
+using Polynomials
 using Test
 using ToeplitzMatrices
 
 @testset "ARMA" begin
 
 # 1) Test padded_length: rounds up to convenient size for FFT
-@testset "padded_length" begin
+@testset "Padded length" begin
     @test ARMA.padded_length(1000) == 1024
     @test ARMA.padded_length(16) == 16
     @test ARMA.padded_length(12) == 16
@@ -21,7 +22,7 @@ using ToeplitzMatrices
 end
 
 # 2) Test estimate_covariance
-@testset "estimate_covariance" begin
+@testset "Estimate covariance" begin
     @test estimate_covariance([0,2,0,-2]) == [2.0, 0.0, -2.0, 0.0]
     u = randn(2+2^13)
     r = u[3:end] + u[1:end-2] + 2*u[2:end-1]
@@ -53,7 +54,7 @@ function similar_list(a::Vector, b::Vector, eps)
     true
 end
 
-@testset "ARMA_constructors" begin
+@testset "ARMA constructors" begin
     p,q = 3,3
     rs = 1 .+ (randn(q) .^ 2)
     ps = 1 .+ (randn(p) .^ 2)
@@ -64,14 +65,14 @@ end
     n = ARMAModel(m.θcoef, m.ϕcoef)
     @test m.θcoef == n.θcoef
     @test m.ϕcoef == n.ϕcoef
-    @test similar_list(m.roots_, n.roots_, 1e-7)
-    @test similar_list(m.poles, n.poles, 1e-7)
+    @test similar_list(m.zroots, n.zroots, 1e-7)
+    @test similar_list(m.zpoles, n.zpoles, 1e-7)
 end
 
 # 4) Now complete tests of several models that have been worked out carefully
 # on paper, as well as several that are randomly created.
 
-@testset "ARMA_representations" begin
+@testset "ARMA representations" begin
     # Generate 6 models of fixed parameters and order (2,0), (0,2), (1,1), (1,2), (2,1), (2,2)
     thetas=Dict('A'=>[2], 'B'=>[2,2.6,.8], 'C'=>[2,1.6], 'D'=>[2,2.6,.8], 'E'=>[2,1.6], 'F'=>[2,2.6,.8])
     phis = Dict('A'=>[1,-.3,-.4], 'B'=>[1], 'C'=>[1,-.8], 'D'=>[1,-.8], 'E'=>[1,-.3,-.4], 'F'=>[1,-.3,-.4])
@@ -85,36 +86,36 @@ end
         p = rand(0:6)
         q = rand(0:6)
         if p+q==0; p=q=5; end  # Don't test ARMA(0,0) model!
-        roots_ = rand(q) .^ (-.3)
-        poles = rand(p) .^ (-.3)
+        zroots = rand(q) .^ (-.3)
+        zpoles = rand(p) .^ (-.3)
 
         # Want one negative pole, if p>=3
         if p>2
-            poles[end] *= -1
+            zpoles[end] *= -1
         end
 
-        # Half the time, on larger-order models, make one pair roots and/or poles complex.
+        # On larger-order models, with probability 1/2 make one pair roots and/or poles complex.
         if p>2 && rand(0:1) == 1
-            poles = complex(poles)
-            poles[1] = complex(real(poles[1]),real(poles[2]))
-            poles[2] = conj(poles[1])
+            zpoles = complex(zpoles)
+            zpoles[1] = complex(real(zpoles[1]),real(zpoles[2]))
+            zpoles[2] = conj(zpoles[1])
         end
 
         if q>2 && rand(0:1) == 1
-            roots_ = complex(roots_)
-            roots_[1] = complex(real(roots_[1]),real(roots_[2]))
-            roots_[2] = conj(roots_[1])
+            zroots = complex(zroots)
+            zroots[1] = complex(real(zroots[1]),real(zroots[2]))
+            zroots[2] = conj(zroots[1])
         end
 
         # Scale theta by 0.7 to avoid lucky cancellations in the tests.
-        thetas[model] = ARMA.polynomial_from_roots(roots_) * 0.7
-        phis[model] = ARMA.polynomial_from_roots(poles)
+        thetas[model] = ARMA.polynomial_from_roots(zroots) * 0.7
+        phis[model] = ARMA.polynomial_from_roots(zpoles)
         phis[model] *= 1.0/phis[model][1]
     end
 
     # Loop over all the models specified by their rational function representation
-    # in thetas[] and phis[]. For each model, construct it all 3 ways (θ,ϕ;
-    # roots, poles, and variance; or sum-of-exponentials). Verify that the resulting
+    # in thetas[] and phis[]. For each model, construct this way, then construct the
+    # other 3 ways using the computed representations. Verify that the resulting
     # model has the same covariance and other key properties.
 
     for model in "ABCDEFGHIJKL"
