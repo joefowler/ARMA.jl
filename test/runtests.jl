@@ -74,12 +74,14 @@ end
 
 @testset "ARMA representations" begin
     # Generate 6 models of fixed parameters and order (2,0), (0,2), (1,1), (1,2), (2,1), (2,2)
-    thetas=Dict('A'=>[2], 'B'=>[2,2.6,.8], 'C'=>[2,1.6], 'D'=>[2,2.6,.8], 'E'=>[2,1.6], 'F'=>[2,2.6,.8])
-    phis = Dict('A'=>[1,-.3,-.4], 'B'=>[1], 'C'=>[1,-.8], 'D'=>[1,-.8], 'E'=>[1,-.3,-.4], 'F'=>[1,-.3,-.4])
+    thetas=Dict('A'=>[2], 'B'=>[2,2.6,.8], 'C'=>[2,1.6], 'D'=>[2,2.6,.8], 'E'=>[2,1.6], 'F'=>[2,2.4,.64], 'G'=>[2.56,-3.2,2])
+    phis = Dict('A'=>[1,-.3,-.4], 'B'=>[1], 'C'=>[1,-.8], 'D'=>[1,-.8], 'E'=>[1,-.3,-.4], 'F'=>[1,-.3,-.4], 'G'=>[1.46,-1,1])
+    thetas['H'] = 2*[.7,-.610012884943422]
+    phis['H'] = [1.0, -2.2245960001526917, 1.330606269930737, 0.20927432077707867, -0.43466711285203985, 0.12142519050461306]
     EPSILON = 2e-4
 
     # And generate 6 models of random order and random parameters
-    for model in "GHIJKL"
+    for model in "IJKLMN"
         # Order will be 0<=p,q <=6.
         # Use rand^(-.3) for roots/poles. Negative power ensures abs.(r)>1, and
         # the 0.3 power concentrates the values near the unit circle.
@@ -118,9 +120,12 @@ end
     # other 3 ways using the computed representations. Verify that the resulting
     # model has the same covariance and other key properties.
 
-    for model in "ABCDEFGHIJKL"
+    for model in "ABCDEFGHIJKLMN"
         θcoef = float(thetas[model])
         ϕcoef = float(phis[model])
+        # @show model
+        # @show θcoef
+        # @show ϕcoef
         if ϕcoef[1] != 1.0
             θcoef /= ϕcoef[1]
             ϕcoef /= ϕcoef[1]
@@ -175,8 +180,6 @@ end
         # D) Check that the model rational function representation matches.
         if q > 0
             maxcoef = maximum(abs.(m1.θcoef))
-            @show m1.θcoef, m1.ϕcoef
-            @show m2.θcoef, m2.ϕcoef
             @test all(abs.(m1.θcoef .- m2.θcoef) .< EPSILON*maxcoef)
             # At this point, the m3 and m4 θ polynomials aren't guaranteed to match
             # the others, so omit that test for now. If the model_covariance matches,
@@ -195,7 +198,7 @@ end
         numer = Polynomial(m1.θcoef).(z)
         denom = Polynomial(m1.ϕcoef).(z)
         psd = abs2.(numer ./ denom)/2π
-        threshold = 1e-3 * maximum(abs.(psd[1]))
+        threshold = 1e-6 * abs.(psd)
         mpsd = model_psd(m1, N)
         for m in allmodels
             mpsd = model_psd(m, N)
@@ -208,41 +211,41 @@ end
         end
     end
 end
-#
-# # 5) Test fitting data to a sum-of-exponentials representation
-# # and an ARMA model of order (p, q=p)
-# function test_sum_exp(ampls::Vector, bases::Vector, N::Integer)
-#
-#     # First, make sure that ARMA.exponential_model does the right thing.
-#     t = 0:(N-1)
-#     signal = ARMA.exponential_model(t, ampls, bases)
-#     signal2 = zero(signal)
-#     for (b,a) in zip(bases, ampls)
-#         signal2 .+= real(a*(b.^(0:N-1)))
-#     end
-#     @test all(abs.(signal2-signal) .< 1e-6*minimum(abs.(ampls)))
-#
-#     # Now add a tiny bit of noise, fit exponentials and see what happens.
-#     # Rather than testing the fit, test the model that it generates.
-#     noise_level = 1e-4
-#     signal .+= randn(N)*noise_level
-#     NB = length(bases)
-#     afit, bfit = fit_exponentials(signal, pmin=NB, pmax=NB)
-#     cmodel = ARMA.exponential_model(t, afit, bfit)
-#     @test all(abs.(cmodel .- signal) .< .1*maximum(signal))
-#
-#     # Now test the full fitARMA function, with 0 and then 1 exceptional value.
-#     p = length(bases)
-#     model = fitARMA(signal, p, p-1, deltar=noise_level, pmin=p-2)
-#     cmodel = model_covariance(model, N)
-#     @test all(abs.(cmodel .- signal) .< .1*maximum(signal))
-#
-#     signal[1] *= 2
-#     model = fitARMA(signal, p, p, deltar=noise_level, pmin=p-2)
-#     cmodel = model_covariance(model, N)
-#     @test all(abs.(cmodel .- signal) .< .1*maximum(signal))
-# end
-#
+
+# 5) Test fitting data to a sum-of-exponentials representation
+# and an ARMA model of order (p, q=p)
+function test_sum_exp(ampls::Vector, bases::Vector, N::Integer)
+
+    # First, make sure that ARMA.exponential_model does the right thing.
+    t = 0:(N-1)
+    signal = ARMA.exponential_model(t, ampls, bases)
+    signal2 = zero(signal)
+    for (b,a) in zip(bases, ampls)
+        signal2 .+= real(a*(b.^(0:N-1)))
+    end
+    @test all(abs.(signal2-signal) .< 1e-6*minimum(abs.(ampls)))
+
+    # Now add a tiny bit of noise, fit exponentials and see what happens.
+    # Rather than testing the fit, test the model that it generates.
+    noise_level = 1e-4
+    signal .+= randn(N)*noise_level
+    NB = length(bases)
+    afit, bfit = fit_exponentials(signal, pmin=NB, pmax=NB)
+    cmodel = ARMA.exponential_model(t, afit, bfit)
+    @test all(abs.(cmodel .- signal) .< .1*maximum(signal))
+
+    # Now test the full fitARMA function, with 0 and then 1 exceptional value.
+    p = length(bases)
+    model = fitARMA(signal, p, p-1, deltar=noise_level, pmin=p-2)
+    cmodel = model_covariance(model, N)
+    @test all(abs.(cmodel .- signal) .< .1*maximum(signal))
+
+    signal[1] *= 2
+    model = fitARMA(signal, p, p, deltar=noise_level, pmin=p-2)
+    cmodel = model_covariance(model, N)
+    @test all(abs.(cmodel .- signal) .< .1*maximum(signal))
+end
+
 # @testset "Exponential fits" begin
 #     ampls=[5.0,4,3-1im,3+1im]
 #     bases=[.999,.98,.7+.1im,.7-.1im]
@@ -256,34 +259,34 @@ end
 #     bases=[.999, .95, .9, .8, .5]
 #     test_sum_exp(ampls, bases, 400)
 # end
-#
-# # 6) Test toeplitz_whiten and toeplitz_whiten! with an ARMA(2,2) and 5 random vectors
-# @testset "Toeplitz whiten" begin
-#     r=[3,-3]
-#     poles = [1.25,-2]
-#     model = ARMAModel(r, poles, 10.0)
-#     N = 50
-#     Phi = fill(0.0, N, N)
-#     for i=1:model.p+1
-#         for col=1:N+1-i
-#             Phi[col+i-1,col] = model.ϕcoef[i]
-#         end
-#     end
-#     Theta = fill(0.0, N, N)
-#     for i=1:model.q+1
-#         for col=1:N+1-i
-#             Theta[col+i-1,col] = model.θcoef[i]
-#         end
-#     end
-#     for i=1:5
-#         v = randn(N)
-#         correct_tw = Theta \ (Phi * v)
-#         tw = toeplitz_whiten(model, v)
-#         @test all(abs.(tw - correct_tw) .< 1e-6)
-#     end
-# end
-#
-# arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .< eps)
+
+# 6) Test toeplitz_whiten and toeplitz_whiten! with an ARMA(2,2) and 5 random vectors
+@testset "Toeplitz whiten" begin
+    r=[3,-3]
+    poles = [1.25,-2]
+    model = ARMAModel(r, poles, 10.0)
+    N = 50
+    Phi = fill(0.0, N, N)
+    for i=1:model.p+1
+        for col=1:N+1-i
+            Phi[col+i-1,col] = model.ϕcoef[i]
+        end
+    end
+    Theta = fill(0.0, N, N)
+    for i=1:model.q+1
+        for col=1:N+1-i
+            Theta[col+i-1,col] = model.θcoef[i]
+        end
+    end
+    for i=1:5
+        v = randn(N)
+        correct_tw = Theta \ (Phi * v)
+        tw = toeplitz_whiten(model, v)
+        @test all(abs.(tw - correct_tw) .< 1e-6)
+    end
+end
+
+arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .< eps)
 #
 #
 # # 7) Test internals used by whiten, unwhiten, solve_covariance, mult_covariance
@@ -348,7 +351,7 @@ end
 # end
 
 # include("hdf5test.jl")
-# include("rcproots_test.jl")
-# include("rational_test.jl")
-# include("fitting_test.jl")
+include("rcproots_test.jl")
+include("rational_test.jl")
+include("fitting_test.jl")
 end
