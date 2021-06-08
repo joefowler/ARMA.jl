@@ -193,7 +193,7 @@ function partial_frac(num::Number, poles::AbstractVector)
     r
 end
 
-function find_roots(vfit::PartialFracRational; steptol=1e-13)
+function find_roots(vfit::PartialFracRational; steptol=1e-14)
     # The vfit is a model of F(z)=N(z)/D(z)+R(z)
     # Now find a model for F(z)/R(z) = N(z)/ [D(z)R(z)] + 1 as a partial fraction
     # Once it's a full partial fraction, it will have new poles (the roots of R) but
@@ -227,13 +227,7 @@ function find_roots(vfit::PartialFracRational; steptol=1e-13)
     # by a few Newton-Raphson steps
     remainder = ChebyshevT(vfit.b)
     dremainder = derivative(remainder)
-    function F(x)
-        f0 = 0.0im
-        for (ρ, λ) in zip(vfit.a, vfit.λ)
-            f0 += ρ/(x-λ)
-        end
-        f0 + evalpoly.(complex(x), remainder, false)
-    end
+    F = vfit
     function dFdx(x)
         f0 = 0.0im
         for (ρ, λ) in zip(vfit.a, vfit.λ)
@@ -258,9 +252,10 @@ function find_roots(vfit::PartialFracRational; steptol=1e-13)
             xnew = x+intended_step
             newF = abs(F(xnew))
             if newF < prevF
-                x, prevF = xnew, newF
                 actual_step = xnew-x
-                abs(actual_step) < steptol*abs(x) && break
+                min_step = 3eps(abs(x))
+                x, prevF = xnew, newF
+                abs(actual_step) < steptol*abs(x) || abs(actual_step) < min_step && break
             else
                 break
             end

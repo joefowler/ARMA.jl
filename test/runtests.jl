@@ -88,8 +88,8 @@ end
         p = rand(0:6)
         q = rand(0:6)
         if p+q==0; p=q=5; end  # Don't test ARMA(0,0) model!
-        zroots = rand(q) .^ (-.3)
-        zpoles = rand(p) .^ (-.3)
+        zroots = 1.01rand(q) .^ (-.3)
+        zpoles = 1.01rand(p) .^ (-.3)
 
         # Want one negative pole, if p>=3
         if p>2
@@ -109,8 +109,7 @@ end
             zroots[2] = conj(zroots[1])
         end
 
-        # Scale theta by 0.7 to avoid lucky cancellations in the tests.
-        thetas[model] = ARMA.polynomial_from_roots(zroots) * 0.7
+        thetas[model] = ARMA.polynomial_from_roots(zroots) * 10
         phis[model] = ARMA.polynomial_from_roots(zpoles)
         phis[model] *= 1.0/phis[model][1]
     end
@@ -202,6 +201,7 @@ end
         mpsd = model_psd(m1, N)
         for m in allmodels
             mpsd = model_psd(m, N)
+            # @show maximum(abs.(psd.-mpsd)./threshold)
             @test size(psd) == size(mpsd)
             @test all(abs.(psd .- mpsd) .< threshold)
 

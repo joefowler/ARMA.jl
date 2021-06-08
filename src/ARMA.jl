@@ -252,7 +252,6 @@ It is assumed that the coefficients are real, so only the real part is kept.
 The lowest-order nonzero term (generically, the first) has coefficient +1."
 function polynomial_from_roots(r::AbstractVector)
     pr = prod(r)
-    @assert abs(sin(angle(pr))) < 1e-10
     n0 = sum(r.==0) # count number of identically zero roots.
     coef = real(fromroots(r).coeffs)
     coef / coef[1+n0]
