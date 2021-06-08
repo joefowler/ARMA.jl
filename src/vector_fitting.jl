@@ -100,7 +100,6 @@ function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0
     b = nothing
     model = nothing
     λ = λ0
-    @show λ0
 
     for iter=1:maxit
         for k=1:n
@@ -117,7 +116,6 @@ function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0
         # Update the poles to those implied by the new d(z) function
         λ = roots_pfrac1(b, λ)
     end
-    @show λ
 
     for k=1:n
         C[:,k] .= 1.0 ./ (z.-λ[k])
