@@ -15,7 +15,6 @@ include("weightedAAA.jl")
 include("PartialFracRational.jl")
 include("vector_fitting.jl")
 
-using PyPlot
 fit_psd(ω::AbstractVector, PSD::Function, pulsemodel::AbstractVector, p, q=-1) = fit_psd(PSD.(ω), pulsemodel, p, q)
 
 function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
