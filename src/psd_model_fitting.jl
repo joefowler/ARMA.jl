@@ -224,38 +224,47 @@ function find_roots(vfit::PartialFracRational; steptol=1e-13)
         end
     end
 
-    rough_roots = RCPRoots(rough_roots; abstol=3e-12, reltol=3e-12)
-
     # Poor conditioning can make the eigenvalue method yield imperfect values. "Polish" those results
     # by a few Newton-Raphson steps
     remainder = ChebyshevT(vfit.b)
+    dremainder = derivative(remainder)
     function F(x)
-        f0 = evalpoly.(complex(x), remainder, false)
+        f0 = 0.0im
         for (ρ, λ) in zip(vfit.a, vfit.λ)
             f0 += ρ/(x-λ)
         end
-        f0
+        f0 + evalpoly.(complex(x), remainder, false)
     end
     function dFdx(x)
-        f0 = evalpoly.(complex(x), derivative(remainder), false)
+        f0 = 0.0im
         for (ρ, λ) in zip(vfit.a, vfit.λ)
             f0 -= ρ/(x-λ)^2
         end
-        f0
+        f0 + evalpoly.(complex(x), dremainder, false)
     end
 
-    r = copy(rough_roots.z)
+    r = copy(rough_roots)
     for i=1:length(r)
-        # Try Newton steps, up to 5.
+        # Try Newton steps, up to 12.
         x = r[i]
-        for iter=1:5
+        prevF = abs(F(x))
+        if abs(F(real(x))) < prevF
+            x = real(x)
+            prevF = abs(F(x))
+        end
+        for iter=1:12
             # Careful: very small _intended_ steps can actually yield no change at all
             # to floating-point precision. Check the actual step, not the intended one.
             intended_step = -F(x)/dFdx(x)
             xnew = x+intended_step
-            actual_step = abs(xnew-x)
-            x = xnew
-            abs(actual_step) < steptol && break
+            newF = abs(F(xnew))
+            if newF < prevF
+                x, prevF = xnew, newF
+                actual_step = xnew-x
+                abs(actual_step) < steptol*abs(x) && break
+            else
+                break
+            end
         end
         if eltype(r) <: Real
             r[i] = real(x)
