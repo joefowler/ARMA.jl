@@ -211,14 +211,17 @@ function find_roots(vfit::PartialFracRational; steptol=1e-13)
         bc = zeros(ComplexF64, q)
         β = ComplexF64[]
         β = chebyshev_roots(real(vfit.b))
-        for i=1:p
-            poles = [vfit.λ[i], β...]
-            pfc = partial_frac(a[i], poles)
-            bc[i] = pfc[1]
-            bc[end-(q-p)+1:end] .+= pfc[2:end]
+        if p==0
+            rough_roots = β
+        else
+            for i=1:p
+                poles = [vfit.λ[i], β...]
+                pfc = partial_frac(a[i], poles)
+                bc[i] = pfc[1]
+                bc[end-(q-p)+1:end] .+= pfc[2:end]
+            end
+            rough_roots = roots_pfrac1(-bc, vcat(vfit.λ, β))
         end
-        # rough_roots = eigvals(Diagonal(vcat(vfit.λ, β)) - bc*ones(q)')
-        rough_roots = roots_pfrac1(-bc, vcat(vfit.λ, β))
     end
 
     rough_roots = RCPRoots(rough_roots; abstol=3e-12, reltol=3e-12)
