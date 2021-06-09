@@ -99,6 +99,28 @@ end
 
 
 """
+    derivative(pfr::PartialFracRational, order::Int=1)
+
+Returns a function that evaluates the derivative of `pfr`.
+"""
+function derivative(pfr::PartialFracRational, order::Int=1)
+    order <= 0 && return pfr
+    # Scale = (-1)^order * factorial(order)
+    scale = -1.0
+    for i=2:order
+        scale *= -i
+    end
+    function der(x::Number)
+        f0 = 0.0im
+        for (ρ, λ) in zip(pfr.a, pfr.λ)
+            f0 += scale*ρ/(x-λ)^(order+1)
+        end
+        f0 + evalpoly(complex(x), derivative(ChebyshevT(pfr.b), order), false)
+    end
+    der
+end
+
+"""
     legendre_companion(c)
 
 Return the scaled companion matrix for a Legendre series with coefficients `c`.

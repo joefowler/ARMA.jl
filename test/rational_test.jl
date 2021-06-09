@@ -70,6 +70,19 @@ end
     @test all((p4(z).-f1 .≈ 1) .| isinf.(f1) .| isnan.(f1))
     @test all((f1 .< p5(z)) .| isinf.(f1))
 
+    # Check derivatives, order 0-3.
+    d0 = derivative(p4, 0)
+    d1 = derivative(p4)
+    d2 = derivative(p4, 2)
+    d3 = derivative(p4, 3)
+    p4d1 = -3 ./(z.-1).^2 .- 4 ./(z.-2).^2
+    p4d2 = +6 ./(z.-1).^3 .+ 8 ./(z.-2).^3
+    p4d3 = -18 ./(z.-1).^4 .- 24 ./(z.-2).^4
+    @test all(d0.(z) .≈ p4(z))
+    @test all(d1.(z) .≈ p4d1)
+    @test all(d2.(z) .≈ p4d2)
+    @test all(d3.(z) .≈ p4d3)
+
     # Check it behaves with implicit or explicit zero partial fraction terms.
     p1 = PartialFracRational(Float64[], Float64[], [13,4.0])
     p2 = PartialFracRational([13,4.0])
