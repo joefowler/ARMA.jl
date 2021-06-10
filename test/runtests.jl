@@ -320,9 +320,9 @@ arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .<
             v = randn(N)
             @test arrays_similar(LL[1:N,1:N]\v, solver.LL[1:N,1:N]\v, 1e-7)
             @test arrays_similar(LL[1:N,1:N]*v, solver.LL[1:N,1:N]*v, 1e-7)
-            @test arrays_similar(L[1:N,1:N]\v, whiten(solver, v), 1e-6)
+            @test arrays_similar(L[1:N,1:N]\v, whiten(solver, v), 1e-5)
             @test arrays_similar(L[1:N,1:N]*v, unwhiten(solver, v), 1e-7)
-            @test arrays_similar(R[1:N,1:N]*v, mult_covariance(solver, v), 1e-5)
+            @test arrays_similar(R[1:N,1:N]*v, mult_covariance(solver, v), 1e-4
             @test arrays_similar(R[1:N,1:N]\v, solve_covariance(solver, v), 1e-3)
             Rinv = inverse_covariance(solver, N)
             @test arrays_similar(R[1:N,1:N]*Rinv, Matrix{Float64}(I, N, N), 1e-7)
