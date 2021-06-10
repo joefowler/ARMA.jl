@@ -131,7 +131,7 @@ function roots(pfr::PartialFracRational; method=:Poly, nsteps=12)
         r = roots_improve(pfr, rough; nsteps)
         r = remove_duplicates(r)
         if length(r) < pfr.m
-            println("Need $(pfr.m) roots, have $r")
+            # println("Need $(pfr.m) roots, have $r")
             r = find_lost_roots(r, pfr)
         end
         return roots_improve(pfr, r; nsteps)
@@ -142,7 +142,7 @@ function roots(pfr::PartialFracRational; method=:Poly, nsteps=12)
         r = roots_improve(pfr, rough; nsteps)
         r = remove_duplicates(r)
         if length(r) < pfr.m
-            println("Need $(pfr.m) roots, have $r")
+            # println("Need $(pfr.m) roots, have $r")
             r = find_lost_roots(r, pfr)
         end
         return roots_improve(pfr, r; nsteps)
