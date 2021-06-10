@@ -1,4 +1,4 @@
-using ARMA: partial_frac, make_poles_legal, find_roots, vectorfit, RCPRoots, PartialFracRational
+using ARMA: partial_frac_decomp, make_poles_legal, roots, vectorfit, RCPRoots, PartialFracRational
 using Test
 
 @testset "vectorfit" begin
@@ -30,8 +30,8 @@ end
     # Rewrite a/∏(z-λ[i]) as ∑ b[i]/z-λ[i]
     λ = [1, 2+1im, 2-1im]
     a=4
-    b1 = partial_frac(a, λ)
-    b8 = partial_frac(8a, λ)
+    b1 = partial_frac_decomp(a, λ)
+    b8 = partial_frac_decomp(8a, λ)
     f = PartialFracRational(λ, b1)
     f8 = PartialFracRational(λ, b8)
     g(x) = a/prod(x.-λ)
@@ -45,11 +45,16 @@ end
     p1 = PartialFracRational([-1, -2], [3, 2])
     p2 = PartialFracRational([-1, -2], [6, -12], [1])
     p3 = PartialFracRational([-1, -2], [-6, 24], [-6, 1])
-    pfr = [p1, p2, p3]
-    answers = [[-1.6], [1, 2], [0, 1, 2]]
-    for (p, ans) in zip(pfr, answers)
-        r = find_roots(p)
-        @test all(isapprox.(r, ans; atol=1e-10))
+    p4 = PartialFracRational([-1, -2], [-6, 24], [-6, 1, 2])
+    pfr = [p1, p2, p3, p4]
+    answers = [[-1.6], [1, 2], [0, 1, 2], nothing]
+    for (p, answer) in zip(pfr, answers)
+        r = roots(p)
+        @test all(abs.(p.(r)) .< 1e-12)
+        if answer != nothing
+            sort!(r)
+            @test all(isapprox.(r, answer; atol=1e-10))
+        end
     end
 end
 
