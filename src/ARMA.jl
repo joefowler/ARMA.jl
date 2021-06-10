@@ -5,6 +5,8 @@ using LinearAlgebra
 using Statistics
 using ToeplitzMatrices
 
+import Polynomials: roots, derivative  # So we can extend with new methods
+
 export
     estimate_covariance,
     fitARMA,
