@@ -112,9 +112,9 @@ end
     for model in keys(thetas)
         θcoef = float(thetas[model])
         ϕcoef = float(phis[model])
-        @show model
-        @show θcoef
-        @show ϕcoef
+        # @show model
+        # @show θcoef
+        # @show ϕcoef
         if ϕcoef[1] != 1.0
             θcoef /= ϕcoef[1]
             ϕcoef /= ϕcoef[1]
@@ -235,19 +235,19 @@ function test_sum_exp(ampls::Vector, bases::Vector, N::Integer)
     @test all(abs.(cmodel .- signal) .< .1*maximum(signal))
 end
 
-# @testset "Exponential fits" begin
-#     ampls=[5.0,4,3-1im,3+1im]
-#     bases=[.999,.98,.7+.1im,.7-.1im]
-#     test_sum_exp(ampls, bases, 400)
-#
-#     ampls=[7.0,5,3-1im,3+1im]
-#     bases=[.99,.9,.1+.8im,.1-.8im]
-#     test_sum_exp(ampls, bases, 400)
-#
-#     ampls=[1,2,3,4,5]
-#     bases=[.999, .95, .9, .8, .5]
-#     test_sum_exp(ampls, bases, 400)
-# end
+@testset "Exponential fits" begin
+    ampls=[5.0,4,3-1im,3+1im]
+    bases=[.999,.98,.7+.1im,.7-.1im]
+    test_sum_exp(ampls, bases, 400)
+
+    ampls=[7.0,5,3-1im,3+1im]
+    bases=[.99,.9,.1+.8im,.1-.8im]
+    test_sum_exp(ampls, bases, 400)
+
+    ampls=[1,2,3,4,5]
+    bases=[.999, .95, .9, .8, .5]
+    test_sum_exp(ampls, bases, 400)
+end
 
 # 6) Test toeplitz_whiten and toeplitz_whiten! with an ARMA(2,2) and 5 random vectors
 @testset "Toeplitz whiten" begin
@@ -278,68 +278,68 @@ end
 arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .< eps)
 #
 #
-# # 7) Test internals used by whiten, unwhiten, solve_covariance, mult_covariance
-# @testset "Whiten" begin
-#     for i=1:5
-#         N = 50
-#         v = randn(N)
-#         vx = copy(v)
-#         vx[2:end] += 0.8*v[1:end-1]
-#         vy = copy(v)
-#         vy[2:end] -= 0.3*v[1:end-1]
-#         vy[3:end] -= 0.4*v[1:end-2]
-#
-#         @test arrays_similar( ARMA.convolve_same(v, [1, 0.8]), vx)
-#         @test arrays_similar( ARMA.deconvolve_same(vx, [1, 0.8]), v)
-#         @test arrays_similar( ARMA.convolve_same(v, [1, -.3, -.4]), vy)
-#         @test arrays_similar( ARMA.deconvolve_same(vy, [1, -.3, -.4]), v)
-#     end
-#
-#     # Test whiten, unwhiten, solve_covariance, mult_covariance
-#     # Use roots/poles/variance specification
-#     model23 = ARMAModel([1.2,1.1,1.02], [1.25, -2], 10)
-#     model32 = ARMAModel([1.25,-2], [1.2,1.1,1.02], 10)
-#     model52 = ARMAModel([1.25,-2], [6,2.5,1.2,1.1,1.02], 10)
-#     model25 = ARMAModel([6,2.5,1.2,1.1,1.02], [1.25, -2], 10)
-#     for model in (model23, model32, model25, model52)
-#         N = 16
-#         gamma = model_covariance(model, N)
-#         R = SymmetricToeplitz(gamma)
-#         L = cholesky(R).L
-#         x = fill(0.0, N)
-#         y = fill(0.0, N)
-#         x[1:model.p+1] = model.ϕcoef
-#         y[1] = x[1]
-#         Phi = Toeplitz(x, y)
-#         # must force symmetry, or numerical precision will make cholesky() fail.
-#         RR = Hermitian(Phi*R*Phi')
-#         LL = cholesky(RR).L
-#
-#         solver = ARMASolver(model, N)
-#         for N in [2,4,6,8,10,14]
-#             v = randn(N)
-#             @test arrays_similar(LL[1:N,1:N]\v, solver.LL[1:N,1:N]\v, 1e-7)
-#             @test arrays_similar(LL[1:N,1:N]*v, solver.LL[1:N,1:N]*v, 1e-7)
-#             @test arrays_similar(L[1:N,1:N]\v, whiten(solver, v), 1e-6)
-#             @test arrays_similar(L[1:N,1:N]*v, unwhiten(solver, v), 1e-7)
-#             @test arrays_similar(R[1:N,1:N]*v, mult_covariance(solver, v), 1e-7)
-#             @test arrays_similar(R[1:N,1:N]\v, solve_covariance(solver, v), 1e-3)
-#             Rinv = inverse_covariance(solver, N)
-#             @test arrays_similar(R[1:N,1:N]*Rinv, Matrix{Float64}(I, N, N), 1e-7)
-#             @test arrays_similar(Rinv*R[1:N,1:N], Matrix{Float64}(I, N, N), 1e-7)
-#
-#             # Test that they can be applied to matrices as well as vectors
-#             M = randn(N, 4)
-#             @test arrays_similar(L[1:N,1:N]\M, whiten(solver, M), 1e-5)
-#             @test arrays_similar(L[1:N,1:N]*M, unwhiten(solver, M), 1e-7)
-#             @test arrays_similar(R[1:N,1:N]*M, mult_covariance(solver, M), 1e-7)
-#             @test arrays_similar(R[1:N,1:N]\M, solve_covariance(solver, M), 1e-3)
-#         end
-#
-#     end
-# end
+# 7) Test internals used by whiten, unwhiten, solve_covariance, mult_covariance
+@testset "Whiten" begin
+    for i=1:5
+        N = 50
+        v = randn(N)
+        vx = copy(v)
+        vx[2:end] += 0.8*v[1:end-1]
+        vy = copy(v)
+        vy[2:end] -= 0.3*v[1:end-1]
+        vy[3:end] -= 0.4*v[1:end-2]
 
-# include("hdf5test.jl")
+        @test arrays_similar( ARMA.convolve_same(v, [1, 0.8]), vx)
+        @test arrays_similar( ARMA.deconvolve_same(vx, [1, 0.8]), v)
+        @test arrays_similar( ARMA.convolve_same(v, [1, -.3, -.4]), vy)
+        @test arrays_similar( ARMA.deconvolve_same(vy, [1, -.3, -.4]), v)
+    end
+
+    # Test whiten, unwhiten, solve_covariance, mult_covariance
+    # Use roots/poles/variance specification
+    model23 = ARMAModel([1.2,1.1,1.02], [1.25, -2], 10)
+    model32 = ARMAModel([1.25,-2], [1.2,1.1,1.02], 10)
+    model52 = ARMAModel([1.25,-2], [6,2.5,1.2,1.1,1.02], 10)
+    model25 = ARMAModel([6,2.5,1.2,1.1,1.02], [1.25, -2], 10)
+    for model in (model23, model32, model25, model52)
+        N = 16
+        gamma = model_covariance(model, N)
+        R = SymmetricToeplitz(gamma)
+        L = cholesky(R).L
+        x = fill(0.0, N)
+        y = fill(0.0, N)
+        x[1:model.p+1] = model.ϕcoef
+        y[1] = x[1]
+        Phi = Toeplitz(x, y)
+        # must force symmetry, or numerical precision will make cholesky() fail.
+        RR = Hermitian(Phi*R*Phi')
+        LL = cholesky(RR).L
+
+        solver = ARMASolver(model, N)
+        for N in [2,4,6,8,10,14]
+            v = randn(N)
+            @test arrays_similar(LL[1:N,1:N]\v, solver.LL[1:N,1:N]\v, 1e-7)
+            @test arrays_similar(LL[1:N,1:N]*v, solver.LL[1:N,1:N]*v, 1e-7)
+            @test arrays_similar(L[1:N,1:N]\v, whiten(solver, v), 1e-6)
+            @test arrays_similar(L[1:N,1:N]*v, unwhiten(solver, v), 1e-7)
+            @test arrays_similar(R[1:N,1:N]*v, mult_covariance(solver, v), 1e-5)
+            @test arrays_similar(R[1:N,1:N]\v, solve_covariance(solver, v), 1e-3)
+            Rinv = inverse_covariance(solver, N)
+            @test arrays_similar(R[1:N,1:N]*Rinv, Matrix{Float64}(I, N, N), 1e-7)
+            @test arrays_similar(Rinv*R[1:N,1:N], Matrix{Float64}(I, N, N), 1e-7)
+
+            # Test that they can be applied to matrices as well as vectors
+            M = randn(N, 4)
+            @test arrays_similar(L[1:N,1:N]\M, whiten(solver, M), 1e-5)
+            @test arrays_similar(L[1:N,1:N]*M, unwhiten(solver, M), 1e-7)
+            @test arrays_similar(R[1:N,1:N]*M, mult_covariance(solver, M), 1e-4)
+            @test arrays_similar(R[1:N,1:N]\M, solve_covariance(solver, M), 1e-3)
+        end
+
+    end
+end
+
+include("hdf5test.jl")
 include("rcproots_test.jl")
 include("rational_test.jl")
 include("fitting_test.jl")
