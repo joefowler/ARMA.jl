@@ -74,57 +74,47 @@ end
 
 @testset "ARMA representations" begin
     # Generate 6 models of fixed parameters and order (2,0), (0,2), (1,1), (1,2), (2,1), (2,2)
-    thetas=Dict('A'=>[2], 'B'=>[2,2.6,.8], 'C'=>[2,1.6], 'D'=>[2,2.6,.8], 'E'=>[2,1.6], 'F'=>[2,2.4,.64], 'G'=>[2.56,-3.2,2])
-    phis = Dict('A'=>[1,-.3,-.4], 'B'=>[1], 'C'=>[1,-.8], 'D'=>[1,-.8], 'E'=>[1,-.3,-.4], 'F'=>[1,-.3,-.4], 'G'=>[1.46,-1,1])
-    thetas['H'] = 2*[.7,-.610012884943422]
-    phis['H'] = [1.0, -2.2245960001526917, 1.330606269930737, 0.20927432077707867, -0.43466711285203985, 0.12142519050461306]
+    thetas=Dict("A"=>[2], "B"=>[2,2.6,.8], "C"=>[2,1.6], "D"=>[2,2.6,.8], "E"=>[2,1.6], "F"=>[2,2.4,.64], "G"=>[2.56,-3.2,2])
+    phis = Dict("A"=>[1,-.3,-.4], "B"=>[1], "C"=>[1,-.8], "D"=>[1,-.8], "E"=>[1,-.3,-.4], "F"=>[1,-.3,-.4], "G"=>[1.46,-1,1])
+    thetas["H"] = 2*[.7,-.610012884943422]
+    phis["H"] = [1.0, -2.2245960001526917, 1.330606269930737, 0.20927432077707867, -0.43466711285203985, 0.12142519050461306]
     EPSILON = 2e-4
 
-    # And generate 6 models of random order and random parameters
-    for model in "IJKLMN"
-        # Order will be 0<=p,q <=6.
-        # Use rand^(-.3) for roots/poles. Negative power ensures abs.(r)>1, and
-        # the 0.3 power concentrates the values near the unit circle.
-        p = rand(0:6)
-        q = rand(0:6)
-        if p+q==0; p=q=5; end  # Don't test ARMA(0,0) model!
-        zroots = 1.01rand(q) .^ (-.3)
-        zpoles = 1.01rand(p) .^ (-.3)
-
-        # Want one negative pole, if p>=3
-        if p>2
-            zpoles[end] *= -1
+    # And systematically generate models with between 0 and 6 roots and poles each.
+    allroots = [-1.1, 2.5, -.5+1.1im, -.5-1.1im, .8-.8im, .8+.8im]
+    allpoles = [1.01, 1.05, .99+.2im, .99-.2im, .95-.4im, .95+.4im]
+    for p=0:6
+        zpoles = allpoles[1:p]
+        if p==3
+            zpoles = allpoles[2:4]
+        elseif p==5
+            zpoles = allpoles[2:6]
         end
-
-        # On larger-order models, with probability 1/2 make one pair roots and/or poles complex.
-        if p>2 && rand(0:1) == 1
-            zpoles = complex(zpoles)
-            zpoles[1] = complex(real(zpoles[1]),real(zpoles[2]))
-            zpoles[2] = conj(zpoles[1])
+        for q=0:6
+            p+q==0 && continue
+            zroots = allroots[1:q]
+            if q==3
+                zroots = allroots[2:4]
+            elseif q==5
+                zroots = allroots[2:6]
+            end
+            model="p$(p)q$(q)"
+            thetas[model] = ARMA.polynomial_from_roots(zroots)
+            phis[model] = ARMA.polynomial_from_roots(zpoles)
+            phis[model] *= 1.0/phis[model][1]
         end
-
-        if q>2 && rand(0:1) == 1
-            zroots = complex(zroots)
-            zroots[1] = complex(real(zroots[1]),real(zroots[2]))
-            zroots[2] = conj(zroots[1])
-        end
-
-        thetas[model] = ARMA.polynomial_from_roots(zroots) * 10
-        phis[model] = ARMA.polynomial_from_roots(zpoles)
-        phis[model] *= 1.0/phis[model][1]
     end
 
     # Loop over all the models specified by their rational function representation
     # in thetas[] and phis[]. For each model, construct this way, then construct the
     # other 3 ways using the computed representations. Verify that the resulting
     # model has the same covariance and other key properties.
-
-    for model in "ABCDEFGHIJKLMN"
+    for model in keys(thetas)
         θcoef = float(thetas[model])
         ϕcoef = float(phis[model])
-        # @show model
-        # @show θcoef
-        # @show ϕcoef
+        @show model
+        @show θcoef
+        @show ϕcoef
         if ϕcoef[1] != 1.0
             θcoef /= ϕcoef[1]
             ϕcoef /= ϕcoef[1]
@@ -197,11 +187,10 @@ end
         numer = Polynomial(m1.θcoef).(z)
         denom = Polynomial(m1.ϕcoef).(z)
         psd = abs2.(numer ./ denom)/2π
-        threshold = 1e-6 * abs.(psd)
+        threshold = 1e-6 * abs.(psd) .+ 1e-12*maximum(abs.(psd))
         mpsd = model_psd(m1, N)
         for m in allmodels
             mpsd = model_psd(m, N)
-            # @show maximum(abs.(psd.-mpsd)./threshold)
             @test size(psd) == size(mpsd)
             @test all(abs.(psd .- mpsd) .< threshold)
 
