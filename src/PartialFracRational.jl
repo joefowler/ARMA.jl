@@ -128,12 +128,24 @@ function roots(pfr::PartialFracRational; method=:Poly, nsteps=12)
     end
     if method == :Poly
         rough = roots_poly_method(pfr)
-        return roots_improve(pfr, rough; nsteps)
+        r = roots_improve(pfr, rough; nsteps)
+        r = remove_duplicates(r)
+        if length(r) < pfr.m
+            println("Need $(pfr.m) roots, have $r")
+            r = find_lost_roots(r, pfr)
+        end
+        return roots_improve(pfr, r; nsteps)
     end
 
     if method == :Eig
         rough = roots_eigenvalue_method(pfr)
-        return roots_improve(pfr, rough; nsteps)
+        r = roots_improve(pfr, rough; nsteps)
+        r = remove_duplicates(r)
+        if length(r) < pfr.m
+            println("Need $(pfr.m) roots, have $r")
+            r = find_lost_roots(r, pfr)
+        end
+        return roots_improve(pfr, r; nsteps)
     end
 
     rp = roots(pfr; method=:Poly, nsteps)
@@ -151,6 +163,44 @@ function roots(pfr::PartialFracRational; method=:Poly, nsteps=12)
         deleteat!(re, idxe)
     end
     r
+end
+
+function remove_duplicates(r::Vector)
+    s = r[isfinite.(r)]
+    length(s) ≤ 1 && return s
+    scale = maximum(abs.(s))-minimum(abs.(s))
+    i=2
+    while i ≤ length(s)
+        dist = minimum(abs.(s[i] .- s[1:i-1]))
+        if dist < scale*1e-13
+            deleteat!(s, i)
+        else
+            i += 1
+        end
+    end
+    s
+end
+
+
+function find_lost_roots(r::AbstractVector, pfr::PartialFracRational)
+    rmin, rmax = -1, +1
+    n_needed = pfr.m-length(r)
+    if length(r) > 0
+        rmin = r[argmin(abs.(r))]
+        rmax = r[argmax(abs.(r))]
+    end
+    z = LinRange(rmin, rmax, 202)[2:end-1]
+    f = pfr(z)
+    for λ in pfr.λ
+        f .*= (z .- λ)
+    end
+    for ri in r
+        f ./= (z .- ri)
+    end
+    z=z[isfinite.(f)]
+    f=f[isfinite.(f)]
+    lostroots = roots(fit(ArnoldiFit, z, f, n_needed))
+    vcat(r, lostroots)
 end
 
 function roots_improve(pfr::PartialFracRational, rough::AbstractVector; nsteps=12)
