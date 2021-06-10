@@ -115,6 +115,6 @@ end
         CT = ChebyshevT(coef)
         C(x) = evalpoly(x, CT, false)  # allow out-of-domain evaluation
         r = chebyshev_roots(coef)
-        @test all(abs.(C.(r)) .< 1e-8)
+        @test all(abs.(C.(r)) .< 1e-6)
     end
 end

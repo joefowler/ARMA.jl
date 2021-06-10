@@ -120,8 +120,31 @@ function derivative(pfr::PartialFracRational, order::Int=1)
     der
 end
 
+"""
+    roots(pfr::PartialFracRational; method=:Poly, nsteps=12)
+
+Compute the roots of partial-fraction rational function `pfr`.
+
+Allowed methods are `(:Poly, :Eig, :Both)`. The default, `:Poly`, will compute the equivalent
+numerator polynomial and use `Polynomials.roots()` to find them. The `:Eig` will use the
+eignvalue method of Knockaert (for example). Either method will then:
+
+1. "Improve" the roots by `nsteps` Newton steps on each roots.
+1. Check for duplicate roots, which might be true multiple roots but generally are the result of
+   bad initial guesses where 2 or more end up converging to the same value in the Newton iteration.
+   If no duplicate roots are found, the result is complete.
+1. If duplicate roots are found, they are (tentatively) removed, and the lost roots are estimated
+   by computing `pfr` at many locations, mulitplying by the full denominator, dividing by terms
+   (z-r) for each remaining root, and fitting what comes out as a polynomial of the correct degree.
+   Its roots are assumed to be the missing roots.
+1. Another set of Newton's method steps are taken, assuming that the new initial values are close
+   enough to converge to separate roots.
+
+If method `:Both` is chosen, then both are tried, the results from each are paired up (each root to
+the nearest from the other method). From each pair, the two values and the mean of the two are all
+tested in function `pfr`. Whichever of the three has the smallest absolute result is chosen as a root.
+"""
 function roots(pfr::PartialFracRational; method=:Poly, nsteps=12)
-    # nroots = pfr.b
     allowed = (:Poly, :Eig, :Both)
     if !(method in allowed)
         throw(ErrorException("method=$method, must be one of $allowed"))
@@ -165,14 +188,23 @@ function roots(pfr::PartialFracRational; method=:Poly, nsteps=12)
     r
 end
 
-function remove_duplicates(r::Vector)
+"""
+    remove_duplicates(r::AbstractVector; tol=1e-13)
+
+Return a copy of `r`, except that elements are removed if they are non-finite or
+within `tol` times the max minus min absolute value of r.
+"""
+function remove_duplicates(r::AbstractVector; tol=1e-13)
     s = r[isfinite.(r)]
     length(s) ≤ 1 && return s
     scale = maximum(abs.(s))-minimum(abs.(s))
+    if scale == 0
+        scale = 1
+    end
     i=2
     while i ≤ length(s)
         dist = minimum(abs.(s[i] .- s[1:i-1]))
-        if dist < scale*1e-13
+        if dist < scale*tol
             deleteat!(s, i)
         else
             i += 1
@@ -181,10 +213,20 @@ function remove_duplicates(r::Vector)
     s
 end
 
+"""
+    find_lost_roots(r::AbstractVector, pfr::PartialFracRational)
 
+If the putative roots `r` of the rational function `pfr` are incomplete, then
+estimate the missing roots and return the complete set (including `r`).
+
+Compute `pfr` at 200 locations, mulitply the values by the full denominator, divide by terms
+(z-r) for each remaining root, and fit what comes out as a polynomial of the correct degree.
+That polynomial's roots are assumed to be the missing roots and are appended to `r` and returned.
+"""
 function find_lost_roots(r::AbstractVector, pfr::PartialFracRational)
     rmin, rmax = -1, +1
     n_needed = pfr.m-length(r)
+    n_needed == 0 && return
     if length(r) > 0
         rmin = r[argmin(abs.(r))]
         rmax = r[argmax(abs.(r))]
@@ -203,6 +245,15 @@ function find_lost_roots(r::AbstractVector, pfr::PartialFracRational)
     vcat(r, lostroots)
 end
 
+"""
+    roots_improve(pfr::PartialFracRational, rough::AbstractVector; nsteps=12)
+
+Return an improved estimate of the roots of rational function `pfr`, given the initial
+estimates `rough`. Do this by taking `nsteps` Newton steps. There is essentially no
+control over the fact that an initial estimate can be in the basin of convergence of
+a root that is not nearest to the estimate. That is, two rough roots can converge to a
+single improved root. Other methods have to be used to handle that case.
+"""
 function roots_improve(pfr::PartialFracRational, rough::AbstractVector; nsteps=12)
     r = copy(rough)
     der = derivative(pfr)
@@ -245,6 +296,14 @@ function roots_improve(pfr::PartialFracRational, rough::AbstractVector; nsteps=1
     r
 end
 
+"""
+    roots_poly_method(pfr::PartialFracRational)
+
+Estimate the roots of rational function `pfr` by the method of computing the effective
+numerator polynomial (by coefficients) and finding its roots. For polynomials of high
+degree (`pfr.m` ≳ 5-10), the computation by coefficients can lead to poor conditioning
+and dubious results.
+"""
 function roots_poly_method(pfr::PartialFracRational)
     p = Polynomial(ChebyshevT(pfr.b))
     for j=1:pfr.n
@@ -283,7 +342,12 @@ function partial_frac_decomp(num::Number, poles::AbstractVector)
     r
 end
 
-function roots_eigenvalue_method(pfr::PartialFracRational; steptol=1e-14)
+"""
+    roots_eigenvalue_method(pfr::PartialFracRational)
+
+Estimate the roots of rational function `pfr` by the method of eigenvalues.
+"""
+function roots_eigenvalue_method(pfr::PartialFracRational)
     # The pfr is a model of F(z)=N(z)/D(z)+R(z)
     # Now find a model for F(z)/R(z) = N(z)/ [D(z)R(z)] + 1 as a partial fraction
     # Once it's a full partial fraction, it will have new poles (the roots of R) but
