@@ -4,4 +4,4 @@ A package to convert among several representations of an Autoregressive Moving-A
 
 This is not a registered package and is intended for use by a small number of my research collaborators. Still, if it helps you or gets you started on something better, feel free to use according to the terms of the MIT License.
 
-![Build Status](https://github.com/joefowler/ARMA.jl/actions/workflows/test.yml/badge.svg)
+[![Build Status](https://github.com/joefowler/ARMA.jl/actions/workflows/test.yml/badge.svg)](https://github.com/joefowler/ARMA.jl/actions)
