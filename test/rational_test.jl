@@ -1,4 +1,4 @@
-using ARMA: BarycentricRational, PartialFracRational, roots_pfrac, aaawt, legendre_roots, chebyshev_roots
+using ARMA: BarycentricRational, PartialFracRational, partial_frac_decomp, roots_pfrac, aaawt, legendre_roots, chebyshev_roots
 using Polynomials
 using Test
 
@@ -102,6 +102,69 @@ end
     p = PartialFracRational([1,3,5], [4,5,6], [1, 2, 3])
     expect .+= 1.0 .+ 2z .+ 3*(2z.^2 .- 1)
     @test all(expect .≈ p(z))
+end
+
+@testset "partial_frac" begin
+    # Rewrite a/∏(z-λ[i]) as ∑ b[i]/z-λ[i]
+    λ = [1, 2+1im, 2-1im]
+    a=4
+    b1 = partial_frac_decomp(a, λ)
+    b8 = partial_frac_decomp(8a, λ)
+    f = PartialFracRational(λ, b1)
+    f8 = PartialFracRational(λ, b8)
+    g(x) = a/prod(x.-λ)
+
+    xtest = LinRange(1.1, 5, 60)
+    @test all(f(xtest) .≈ g.(xtest))
+    @test all(f8(xtest) .≈ 8g.(xtest))
+end
+
+@testset "PFR_roots" begin
+    p1 = PartialFracRational([-1, -2], [3, 2])
+    p2 = PartialFracRational([-1, -2], [6, -12], [1])
+    p3 = PartialFracRational([-1, -2], [-6, 24], [-6, 1])
+    p4 = PartialFracRational([-1, -2], [-6, 24], [-6, 1, 2])
+    pfr = [p1, p2, p3, p4]
+    answers = [[-1.6], [1, 2], [0, 1, 2], nothing]
+    for (p, answer) in zip(pfr, answers)
+        r = roots(p)
+        @test all(abs.(p.(r)) .< 1e-12)
+        if answer != nothing
+            rr = real(r)
+            sort!(rr)
+            @test all(isapprox.(rr, answer; atol=1e-10))
+        end
+    end
+
+    function mindist(r::Vector)
+        md = Inf
+        for i=1:pfr.m
+            for j=1:i-1
+                md = min(md, abs(r[i]-r[j]))
+            end
+        end
+        md
+    end
+
+    pole = ComplexF64[0.9999138564455727 + 1.311948345590019e-5im, 0.9999138564455727 - 1.311948345590047e-5im, 1.0000039082557004, 1.0001814813594927]
+    residue = ComplexF64[-0.009648614144046466 - 0.015909481835920475im, -0.009648614144046797 + 0.01590948183592052im, 0.010087771996966484, -0.6895883924969154]
+    remainder = [52.25867169674221, 34.27540419493968, -0.8505261672687883, 4.1627407018820985, -9.675698272165642]
+    pfr = PartialFracRational(pole, residue, remainder)
+    r = roots(pfr)
+
+    # Make sure all roots are distinct to the 1e-5 level and that the function
+    # value is always small.
+    @test mindist(r) > 1e-5
+    @test all(abs.(pfr(r)) .< 1e-7)
+
+    pole = ComplexF64[0.9996695605301016 + 7.87923300847346e-5im, 0.9996695605301016 - 7.87923300847346e-5im, 1.0000039439142947, 1.0001291013807305]
+    residue = ComplexF64[-0.004387340627692793 + 0.006942158051290787im, -0.004387340627692793 - 0.006942158051290787im, 0.012338398116147082, -0.5283333626371072]
+    remainder = [79.58549226977715, 61.245019632968, -12.497377376570174]
+    pfr = PartialFracRational(pole, residue, remainder)
+    r = roots(pfr)
+
+    @test mindist(r) > 1e-5
+    @test all(abs.(pfr(r)) .< 1e-7)
 end
 
 @testset "Chebyshev roots" begin

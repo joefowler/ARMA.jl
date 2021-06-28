@@ -105,11 +105,13 @@ Returns a function that evaluates the derivative of `pfr`.
 """
 function derivative(pfr::PartialFracRational, order::Int=1)
     order <= 0 && return pfr
+
     # Scale = (-1)^order * factorial(order)
     scale = -1.0
     for i=2:order
         scale *= -i
     end
+
     function der(x::Number)
         f0 = 0.0im
         for (ρ, λ) in zip(pfr.a, pfr.λ)
@@ -121,60 +123,51 @@ function derivative(pfr::PartialFracRational, order::Int=1)
 end
 
 """
-    roots(pfr::PartialFracRational; method=:Poly, nsteps=12)
+    roots(pfr::PartialFracRational; method=:Eig, nsteps=25)
 
 Compute the roots of partial-fraction rational function `pfr`.
 
-Allowed methods are `(:Poly, :Eig, :Both)`. The default, `:Poly`, will compute the equivalent
-numerator polynomial and use `Polynomials.roots()` to find them. The `:Eig` will use the
-eignvalue method of Knockaert (for example). Either method will then:
+Allowed methods are `(:Eig, :Poly, :Both)`. The default, `:Eig`, will use the
+eignvalue method of Knockaert (for example). `:Poly`, will compute the equivalent
+numerator polynomial by its coefficients and use `Polynomials.roots()` to find the
+roots. Either method will then:
 
-1. "Improve" the roots by `nsteps` Newton steps on each roots.
-1. Check for duplicate roots, which might be true multiple roots but generally are the result of
-   bad initial guesses where 2 or more end up converging to the same value in the Newton iteration.
-   If no duplicate roots are found, the result is complete.
-1. If duplicate roots are found, they are (tentatively) removed, and the lost roots are estimated
-   by computing `pfr` at many locations, mulitplying by the full denominator, dividing by terms
-   (z-r) for each remaining root, and fitting what comes out as a polynomial of the correct degree.
-   Its roots are assumed to be the missing roots.
-1. Another set of Newton's method steps are taken, assuming that the new initial values are close
-   enough to converge to separate roots.
+1.  Improve a root by up to `nsteps` steps of Laguerre's Method. The method is used not on `pfr`
+    but on the product of `pfr` and its denominator factors. This procedure yields the numerator polynomial
+    implictly, without having to compute it directly.
+2.  As each root is improved, it is added to the set of known roots, so that the numerator is used
+    with _zero suppression_. That is, roots are found not for the numerator, but for the numerator
+    divided by the product of (x-ξ) for all roots {ξ} found so far. This zero suppression allows
+    us to find multiple roots, or near-identical roots.
 
 If method `:Both` is chosen, then both are tried, the results from each are paired up (each root to
 the nearest from the other method). From each pair, the two values and the mean of the two are all
 tested in function `pfr`. Whichever of the three has the smallest absolute result is chosen as a root.
 """
-function roots(pfr::PartialFracRational; method=:Poly, nsteps=12)
-    allowed = (:Poly, :Eig, :Both)
+function roots(pfr::PartialFracRational; method=:Eig, nsteps=25)
+    allowed = (:Eig, :Poly, :Both)
     if !(method in allowed)
         throw(ErrorException("method=$method, must be one of $allowed"))
     end
     if method == :Poly
         rough = roots_poly_method(pfr)
-        r = roots_improve(pfr, rough; nsteps)
-        r = remove_duplicates(r)
-        if length(r) < pfr.m
-            # println("Need $(pfr.m) roots, have $r")
-            r = find_lost_roots(r, pfr)
-        end
-        return roots_improve(pfr, r; nsteps)
+        return improve_roots_laguerre(pfr, rough; nsteps)
     end
 
     if method == :Eig
         rough = roots_eigenvalue_method(pfr)
-        r = roots_improve(pfr, rough; nsteps)
-        r = remove_duplicates(r)
-        if length(r) < pfr.m
-            # println("Need $(pfr.m) roots, have $r")
-            r = find_lost_roots(r, pfr)
-        end
-        return roots_improve(pfr, r; nsteps)
+        return improve_roots_laguerre(pfr, rough; nsteps)
     end
 
+    # Here use :Both. Try both methods, match up roots, and use whichever is best.
     rp = roots(pfr; method=:Poly, nsteps)
     re = roots(pfr; method=:Eig, nsteps)
     rp, re = promote(rp, re)
     r = eltype(rp)[]
+    # Go through roots in order of rp from lowest absolute value.
+    # Match each root in re that is closest to the one from rp.
+    # Now compare the two roots and their mean. Choose the best of the three.
+    # (Here, "best" means smallest absolute value of `pfr(x)`.)
     while length(rp) > 0
         idxp = argmin(abs2.(rp))
         idxe = argmin(abs2.(rp[idxp].-re))
@@ -189,111 +182,67 @@ function roots(pfr::PartialFracRational; method=:Poly, nsteps=12)
 end
 
 """
-    remove_duplicates(r::AbstractVector; tol=1e-13)
-
-Return a copy of `r`, except that elements are removed if they are non-finite or
-within `tol` times the max minus min absolute value of r.
-"""
-function remove_duplicates(r::AbstractVector; tol=1e-13)
-    s = r[isfinite.(r)]
-    length(s) ≤ 1 && return s
-    scale = maximum(abs.(s))-minimum(abs.(s))
-    if scale == 0
-        scale = 1
-    end
-    i=2
-    while i ≤ length(s)
-        dist = minimum(abs.(s[i] .- s[1:i-1]))
-        if dist < scale*tol
-            deleteat!(s, i)
-        else
-            i += 1
-        end
-    end
-    s
-end
-
-"""
-    find_lost_roots(r::AbstractVector, pfr::PartialFracRational)
-
-If the putative roots `r` of the rational function `pfr` are incomplete, then
-estimate the missing roots and return the complete set (including `r`).
-
-Compute `pfr` at 200 locations, mulitply the values by the full denominator, divide by terms
-(z-r) for each remaining root, and fit what comes out as a polynomial of the correct degree.
-That polynomial's roots are assumed to be the missing roots and are appended to `r` and returned.
-"""
-function find_lost_roots(r::AbstractVector, pfr::PartialFracRational)
-    rmin, rmax = -1, +1
-    n_needed = pfr.m-length(r)
-    n_needed == 0 && return
-    if length(r) > 0
-        rmin = r[argmin(abs.(r))]
-        rmax = r[argmax(abs.(r))]
-    end
-    z = LinRange(rmin, rmax, 202)[2:end-1]
-    f = pfr(z)
-    for λ in pfr.λ
-        f .*= (z .- λ)
-    end
-    for ri in r
-        f ./= (z .- ri)
-    end
-    z=z[isfinite.(f)]
-    f=f[isfinite.(f)]
-    lostroots = roots(fit(ArnoldiFit, z, f, n_needed))
-    vcat(r, lostroots)
-end
-
-"""
-    roots_improve(pfr::PartialFracRational, rough::AbstractVector; nsteps=12)
+    improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector; nsteps=12)
 
 Return an improved estimate of the roots of rational function `pfr`, given the initial
-estimates `rough`. Do this by taking `nsteps` Newton steps. There is essentially no
-control over the fact that an initial estimate can be in the basin of convergence of
-a root that is not nearest to the estimate. That is, two rough roots can converge to a
-single improved root. Other methods have to be used to handle that case.
+estimates `rough`. Do this by taking `nsteps` steps of Laguerre's method. There is no
+guarantee that a rough estimate will converge to the nearest actual root. However,
+the use of zero suppression and the near-global convergence of Laguerre's method to
+some root means that we don't really have to worry about this.
+
+At most `nsteps` will be taken, but iteration will stop early if the step
+is close to the machine precision.
 """
-function roots_improve(pfr::PartialFracRational, rough::AbstractVector; nsteps=12)
-    r = copy(rough)
-    der = derivative(pfr)
-    for i=1:length(r)
-        x = xnew = r[i]
-        newF = prevF = abs(pfr(x))
-        # Try Newton steps, up to `nsteps`.
+function improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector; nsteps=25)
+    knownroots = ComplexF64[]
+    f1 = derivative(pfr,1)
+    f2 = derivative(pfr,2)
+
+    for i=1:length(rough)
+        n = pfr.m-length(knownroots)
+
+        # Functions to compute the numerator and denominator, and also r,
+        # where r(x) ≡ denom'(x)/denom(x), and its derivative r1 ≡ dr/dx.
+        denom(x) = prod([x-r for r in pfr.λ])
+        numer(x) = pfr(x)*denom(x)
+        r(x) = sum([1.0/(x-ri) for ri in pfr.λ])
+        r1(x) = -sum([1.0/(x-ri)^2 for ri in pfr.λ])
+
+        # For zero suppression, we need Q(x), the product of all so-far known
+        # factors in the numerator, and R(x) ≡ Q'(x)/Q(x) and R'(x).
+        Q(x) = prod([(x-kr) for kr in knownroots])
+        R(x) = sum([1.0/(x-kr) for kr in knownroots])
+        R1(x) = -sum([1.0/(x-kr)^2 for kr in knownroots])
+
+        x = rough[i]
+        bestf, bestx = abs(pfr(x)), x
+
+        # Try steps of Laguerre's method, up to `nsteps` or until steps are too small.
         for _ = 1:nsteps
-            # Careful: very small _intended_ steps can actually yield no change at all
-            # to floating-point precision. Check the actual step, not the intended one.
-            intended_step = -pfr(x)/der(x)
+            G = f1(x)/pfr(x)+r(x)-R(x)
+            H = G^2-f2(x)/pfr(x)-r1(x)+R1(x)
+            rt = sqrt(complex(n-1.0)*(n*H-G^2))
+            dd = G+rt
+            if abs(G-rt) > abs(dd)
+                dd = G-rt
+            end
+            newx = x-n/dd
+            absf = abs(pfr(newx))
+            if absf < bestf
+                bestf, bestx = absf, newx
+            end
             min_step = 3eps(abs(x))
-            for _ = 1:9  # Shorten step by 3/5 up to 9 times (.6^9 = 0.01) before giving up
-                abs(intended_step) ≤ min_step && break
-                xnew = x+intended_step
-                actual_step = xnew-x
-                newF = abs(pfr(xnew))
-                # @show newF, prevF, intended_step, actual_step, x
-                newF < prevF && break
-                # If the Newton step makes F worse
-                intended_step *= 0.6
-                # println("    shorten to $intended_step")
-            end
-            newF > prevF && break
-            steptoosmall = abs(x-xnew) < min_step
-            x, prevF = xnew, newF
-            steptoosmall && break
+            actual_step = abs(x-newx)
+            actual_step < min_step && break
+            x = newx
         end
-        # println()
-        if eltype(r) <: Real
-            r[i] = real(x)
-        else
-            r[i] = x
-            # Sometimes better value with real(x). Check this.
-            if abs(pfr(real(x))) < prevF
-                r[i] = real(x)
-            end
+        # Sometimes better value with real(x). Check this.
+        if abs(pfr(real(bestx))) < bestf
+            bestx = real(bestx)
         end
+        push!(knownroots, bestx)
     end
-    r
+    knownroots
 end
 
 """

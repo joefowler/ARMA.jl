@@ -26,38 +26,6 @@ using Test
     @test_throws ErrorException vectorfit(z, f, λ0, length(λ0)-2)
 end
 
-@testset "partial_frac" begin
-    # Rewrite a/∏(z-λ[i]) as ∑ b[i]/z-λ[i]
-    λ = [1, 2+1im, 2-1im]
-    a=4
-    b1 = partial_frac_decomp(a, λ)
-    b8 = partial_frac_decomp(8a, λ)
-    f = PartialFracRational(λ, b1)
-    f8 = PartialFracRational(λ, b8)
-    g(x) = a/prod(x.-λ)
-
-    xtest = LinRange(1.1, 5, 60)
-    @test all(f(xtest) .≈ g.(xtest))
-    @test all(f8(xtest) .≈ 8g.(xtest))
-end
-
-@testset "find_roots" begin
-    p1 = PartialFracRational([-1, -2], [3, 2])
-    p2 = PartialFracRational([-1, -2], [6, -12], [1])
-    p3 = PartialFracRational([-1, -2], [-6, 24], [-6, 1])
-    p4 = PartialFracRational([-1, -2], [-6, 24], [-6, 1, 2])
-    pfr = [p1, p2, p3, p4]
-    answers = [[-1.6], [1, 2], [0, 1, 2], nothing]
-    for (p, answer) in zip(pfr, answers)
-        r = roots(p)
-        @test all(abs.(p.(r)) .< 1e-12)
-        if answer != nothing
-            sort!(r)
-            @test all(isapprox.(r, answer; atol=1e-10))
-        end
-    end
-end
-
 @testset "make_poles_legal" begin
     poles = [[-1.5, 45], [1.5, .5], [1.0, 3]]
     mustchange = [false, true, true]
