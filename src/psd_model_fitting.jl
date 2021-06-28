@@ -34,7 +34,6 @@ function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
         throw(DimensionMismatch("fit_psd: length(PSD) $N != length(rfft(pulsemodel)) $(length(pulseFT2))"))
     end
 
-    clf()
     w = pulseFT2 ./ PSD.^3
     # Don't let the DC bin have ZERO weight, else model likes to go negative, particularly
     # If there's lots of "action" (poles) near ω=0, or cos(ω)=1.
@@ -42,23 +41,13 @@ function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
 
     aaa_hybrid = aaawt(z, PSD, w, p)
     vfit1 = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
-    loglog(ω, PSD, ".-", label="Input data")
-    loglog(ω, vfit1(z), "--", label="Vfit 1 (illegal poles)")
 
     vfit = make_poles_legal(vfit1, z, PSD, w)
-    loglog(ω, vfit(z), label="Vfit 2 (models legal)")
-    @show vfit.λ
-    ma_roots = find_roots(vfit)
-    @show ma_roots
+    ma_roots = roots(vfit)
     # ma_roots = make_roots_legal(ma_roots)
-    # @show ma_roots
 
     zpoles = exp.(acosh.(vfit.λ))
     zroots = exp.(acosh.(complex(ma_roots[1:end])))
-    println()
-    @show zpoles
-    @show zroots
-    legend()
     var = mean(PSD)
     model = ARMAModel(vfit)
     vfit, model
