@@ -40,17 +40,67 @@ function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
     w[1] = w[2]*.01
 
     aaa_hybrid = aaawt(z, PSD, w, p)
-    vfit1 = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
+    vfit = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
 
-    vfit = make_poles_legal(vfit1, z, PSD, w)
-    ma_roots = roots(vfit)
-    # ma_roots = make_roots_legal(ma_roots)
+    vfit = make_poles_legal(vfit, z, PSD, w)
+    vfit, ma_roots = make_roots_legal(vfit)
 
     zpoles = exp.(acosh.(vfit.λ))
     zroots = exp.(acosh.(complex(ma_roots[1:end])))
     var = mean(PSD)
     model = ARMAModel(vfit)
     vfit, model
+end
+
+"""
+    which_RPs_are_illegal(rp)
+
+Return BitVector of length `length(rp)`, true for each value of `rp` that is both real and
+with absolute value ≤ 1. The argument `rp` may be an `AbstractVector` or an `RCPRoots` object.
+"""
+which_RPs_are_illegal(rp::AbstractVector) = which_RPs_are_illegal(RCPRoots(rp))
+function which_RPs_are_illegal(rp::RCPRoots)
+    # Roots or poles are illegal if the absolute value is ≤1 AND if they are real
+    illegal = abs.(rp) .≤ 1
+    illegal[1:ncomplex(rp)] .= false
+    illegal
+end
+
+"""
+    make_roots_legal(vfit::PartialFracRational)
+
+Return a new version of `vfit` in which all roots δ are "legal", i.e. either non-real, or having |δ|>1.
+
+If `vfit`'s roots are already all legal, it is returned unchanged. If not, a constant is added to
+the function to make them legal. This is not guaranteed to provide a good fit, of course, but it is legal.
+The new `vfit`, of the same numerator and denominator degree, is returned.
+
+At the moment, this can't be done if `vfit.m<vfit.n` because such rational functions don't have a
+constant. Other strategies for that case are TBD.
+"""
+function make_roots_legal(vfit::PartialFracRational)
+    while true
+        ma_roots = RCPRoots(roots(vfit))
+        illegal = which_RPs_are_illegal(ma_roots)
+        if sum(illegal) == 0
+            return vfit, ma_roots
+        end
+
+        if vfit.m ≥ vfit.n
+            # Strategy, when m≥n: add a constant to vfit until roots are legal.
+            r = ma_roots[illegal]
+            midpts = 0.5*(r[1:end-1] .+ r[2:end])
+            f = real(vfit(midpts))
+            b = vfit.b
+            b[1] -= 1.01*minimum(f)
+            vfit = PartialFracRational(vfit.λ, vfit.a, b)
+        else
+            # Strategy, when m<n: I don't have one!
+            @show ma_roots
+            @show vfit
+            throw(ErrorException("No strategy for making roots legal for m<n."))
+        end
+    end
 end
 
 make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::AbstractVector; angletol=1e-13) =
@@ -72,9 +122,7 @@ The fit is done with the power spectrum `PSD` sampled at `z=cos.(ω)` and with s
 """
 function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::AbstractVector, wt::AbstractVector; angletol=1e-13)
     λ = RCPRoots(vfit.λ)
-    # Poles are illegal if the absolute value is ≤1 AND if they are real
-    pole_is_illegal = abs.(λ) .≤ 1
-    pole_is_illegal[1:ncomplex(λ)] .= false
+    pole_is_illegal = which_RPs_are_illegal(λ)
     Nbad = sum(pole_is_illegal)
     if Nbad == 0
         return vfit
