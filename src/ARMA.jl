@@ -11,6 +11,7 @@ export
     estimate_covariance,
     fitARMA,
     fit_exponentials,
+    fit_psd,
     ARMAModel,
     generate_noise,
     model_covariance,
@@ -542,7 +543,7 @@ model_psd(m::ARMAModel, N::Int) = model_psd(m, LinRange(0, 0.5, N))
 
 
 """
-    toeplitz_whiten(m, timestream)
+    toeplitz_whiten(model::ARMAModel, timestream)
 
 Approximately whiten the timestream using a Toeplitz matrix. This has the
 consequence that a zero-padded delay of the input timestream is equivalent to a
@@ -557,44 +558,70 @@ No Toeplitz matrix has the ability to make the input exactly white,
 but for many purposes, the time-shift property is more valuable than
 that exact whitening.
 """
-function toeplitz_whiten(m::ARMAModel, timestream::AbstractVector)
+function toeplitz_whiten(model::ARMAModel, timestream::AbstractVector)
     N = length(timestream)
-    white = fill(0.0, N)
 
-    # First, multiply the input by the AR matrix (a banded Toeplitz
-    # matrix with the ϕ coefficients on the diagonal and first p
-    # subdiagonals).
-    # The result is the MA matrix times the whitened data.
-    MAonly = m.ϕcoef[1] * timestream
-    for i=1:m.p
-        MAonly[1+i:end] .+= m.ϕcoef[i+1] * timestream[1:end-i]
+    # We are going to apply inv(Θ)*Φ*timestream. Do this in the most
+    # well-conditioned way possible. Treat
+    # Θ = model.θcoef[q] * product_i=1:q (1-B/zroots[i])
+    # Φ = model.ϕcoef[p] * product_i=1:p (1-B/zpoles[i])
+    # Where B = the delay-by-one matrix with 1 on first subdiagonal; 0 everywhere else.
+    # Now pair up zroots and zpoles each root with the nearest pole.
+    zpoles = copy(model.zpoles)
+    zroots = copy(model.zroots)
+
+    # Make a copy of the input, complex if necessary
+    T = promote_type(eltype(zpoles), eltype(zroots))
+    white = zeros(T, N)+timestream
+
+    while length(zpoles) > 0 && length(zroots) > 0
+        inear = jnear = 0
+        mind = Inf
+        for i=1:length(zpoles)
+            for j=1:length(zroots)
+                d = abs(zpoles[i]-zroots[j])
+                if d < mind
+                    mind = d
+                    inear = i
+                    jnear = j
+                end
+            end
+        end
+        zp = zpoles[inear]
+        zr = zroots[jnear]
+        # println("Trying pair $zp, $zr, i,j=$inear,$jnear  dist=$mind"in)
+        ϵ = 1-zr/zp
+        deleteat!(zpoles, inear)
+        deleteat!(zroots, jnear)
+
+        # Now whiten the effect of zp and zr by multiplying the timestream by
+        # (1-B/zp)/(1-B/zr) = (1-ϵ)I + ϵ[1+B/zr+(B/zr)^2+(B/zr)^3...] with
+        # ϵ ≡ 1-zr/zp.
+        v = copy(white)
+        for j=2:N
+            v[j] += v[j-1]/zr
+        end
+        white += ϵ*(v-white)
     end
 
-    # Second, solve the MA matrix (also a banded Toeplitz matrix with
-    # q non-zero subdiagonals.)
-    white[1] = MAonly[1] / m.θcoef[1]
-    if N==1
-        return white
+    # Out of pairs. Go through the remaining poles
+    for zp in zpoles
+        white[2:end] -= white[1:end-1]/zp
     end
-    for i = 2:min(m.q, N)
-        white[i] = MAonly[i]
-        for j = 1:i-1
-            white[i] -= white[j]*m.θcoef[1+i-j]
+
+    # Out of pairs. Go through the remaining roots
+    for zr in zroots
+        for j=2:N
+            white[j] += white[j-1]/zr
         end
-        white[i] /= m.θcoef[1]
     end
-    for i = m.q+1:N
-        white[i] = MAonly[i]
-        for j = i-m.q:i-1
-            white[i] -= white[j]*m.θcoef[1+i-j]
-        end
-        white[i] /= m.θcoef[1]
-    end
-    white
+
+    scale = model.ϕcoef[end]/model.θcoef[end]
+    real(white)*scale
 end
 
-function toeplitz_whiten(m::ARMAModel, M::AbstractMatrix)
-    tw(v::AbstractVector) = toeplitz_whiten(m, v)
+function toeplitz_whiten(model::ARMAModel, M::AbstractMatrix)
+    tw(v::AbstractVector) = toeplitz_whiten(model, v)
     mapslices(tw, M, dims=1)
 end
 
