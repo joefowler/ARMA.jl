@@ -113,8 +113,13 @@ function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0
         # c = optparam[n+1:m+1]
         b = optparam[m+2:end]
 
-        # Update the poles to those implied by the new d(z) function
-        λ = roots_pfrac1(b, λ)
+        # Update the poles to those implied by the new d(z) function. Be careful about small b.
+        # Sometimes b is so small--because this iteration is done--that the roots_pfrac1() can't succeed.
+        # When b is small or roots_pfrac1 fails, assume we've found the vector fitting ideal, and stop.
+        all(abs.(b) .< 10eps(maximum(abs.(optparam)))) && break
+        λupdate = roots_pfrac1(b, λ)
+        any(isnan.(λupdate)) && break
+        λ = λupdate
     end
 
     for k=1:n
