@@ -144,7 +144,7 @@ If method `:Both` is chosen, then both are tried, the results from each are pair
 the nearest from the other method). From each pair, the two values and the mean of the two are all
 tested in function `pfr`. Whichever of the three has the smallest absolute result is chosen as a root.
 """
-function roots(pfr::PartialFracRational; method=:Eig, nsteps=25)
+function roots(pfr::PartialFracRational; method=:Eig, nsteps=65)
     allowed = (:Eig, :Poly, :Both)
     if !(method in allowed)
         throw(ErrorException("method=$method, must be one of $allowed"))

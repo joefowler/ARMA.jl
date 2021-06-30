@@ -43,11 +43,11 @@ function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
     vfit = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
 
     vfit = make_poles_legal(vfit, z, PSD, w)
-    vfit, ma_roots = make_roots_legal(vfit)
+    vfit, cosroots = make_roots_legal(vfit)
 
-    zpoles = exp.(acosh.(vfit.λ))
-    zroots = exp.(acosh.(complex(ma_roots[1:end])))
-    var = mean(PSD)
+    # zpoles = exp.(acosh.(vfit.λ))
+    # zroots = exp.(acosh.(complex(cosroots)))
+    # var = mean(PSD)
     model = ARMAModel(vfit)
     vfit, model
 end
@@ -90,7 +90,8 @@ function make_roots_legal(vfit::PartialFracRational)
             # Strategy, when m≥n: add a constant to vfit until roots are legal.
             r = illegal_roots
             midpts = 0.5*(r[1:end-1] .+ r[2:end])
-            f = real(vfit(midpts))
+            testpts = vcat(midpts, [-1,0,1])
+            f = real(vfit(testpts))
             b = vfit.b
             b[1] -= 1.01*minimum(f)
             vfit = PartialFracRational(vfit.λ, vfit.a, b)
