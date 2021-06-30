@@ -12,7 +12,7 @@ using Test
             for s in (0, 1, π, 1e4)
                 r = roots_pfrac(w, x, s)
                 diff = f.(r) .- s
-                @test all((abs.(diff) .< 1e-8*max(s, 1)))
+                @test all((abs.(diff) .< 1e-7*max(s, 1)))
             end
         end
     end
