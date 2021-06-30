@@ -616,7 +616,8 @@ function toeplitz_whiten(model::ARMAModel, timestream::AbstractVector)
         end
     end
 
-    scale = model.ϕcoef[end]/model.θcoef[end]
+    # This model misses the ratio of the constant ϕcoef[1]/θcoef[1]; fix that here.
+    scale = model.ϕcoef[1]/model.θcoef[1]
     real(white)*scale
 end
 

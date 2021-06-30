@@ -249,35 +249,34 @@ end
     test_sum_exp(ampls, bases, 400)
 end
 
-# 6) Test toeplitz_whiten and toeplitz_whiten! with an ARMA(2,2) and 5 random vectors
+# 6) Test toeplitz_whiten and toeplitz_whiten! with an ARMA(3,2) model and 5 random vectors
 @testset "Toeplitz whiten" begin
-    r=[3,-3]
-    poles = [1.25,-2]
-    model = ARMAModel(r, poles, 10.0)
+    zroots=[3,-3]
+    zpoles = [1.25,-2,1.1]
+    epsvar = 4.0
+    model = ARMAModel(zroots, zpoles, epsvar)
     N = 50
-    Phi = fill(0.0, N, N)
-    for i=1:model.p+1
-        for col=1:N+1-i
-            Phi[col+i-1,col] = model.ϕcoef[i]
-        end
-    end
-    Theta = fill(0.0, N, N)
-    for i=1:model.q+1
-        for col=1:N+1-i
-            Theta[col+i-1,col] = model.θcoef[i]
-        end
-    end
+    col1 = zeros(Float64, N)
+    col1[1:model.p+1] = model.ϕcoef[:]
+    toprow = zeros(Float64, N)
+    toprow[1] = model.ϕcoef[1]
+    Φ = Toeplitz(col1, toprow)
+
+    col1 = zeros(Float64, N)
+    col1[1:model.q+1] = model.θcoef[:]
+    toprow[1] = model.θcoef[1]
+    Θ = Toeplitz(col1, toprow)
     for i=1:5
         v = randn(N)
-        correct_tw = Theta \ (Phi * v)
+        correct_tw = Θ \ (Φ*v)
         tw = toeplitz_whiten(model, v)
         @test all(abs.(tw - correct_tw) .< 1e-6)
     end
 end
 
 arrays_similar(v::AbstractArray, w::AbstractArray, eps=1e-10) = all(abs.(v-w) .< eps)
-#
-#
+
+
 # 7) Test internals used by whiten, unwhiten, solve_covariance, mult_covariance
 @testset "Whiten" begin
     for i=1:5

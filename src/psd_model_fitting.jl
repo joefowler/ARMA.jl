@@ -85,6 +85,7 @@ function make_roots_legal(vfit::PartialFracRational)
         if length(illegal_roots) == 0
             return vfit, ma_roots
         end
+        # println("Have to fix $(length(illegal_roots)) illegal roots")
 
         if vfit.m ≥ vfit.n
             # Strategy, when m≥n: add a constant to vfit until roots are legal.
@@ -128,6 +129,7 @@ function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::Abs
     if Nbad == 0
         return vfit
     end
+    # println("Have to fix $Nbad illegal poles: $illegal_poles")
 
     N = length(z)
     ωstep = π/N
