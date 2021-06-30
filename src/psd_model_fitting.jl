@@ -163,10 +163,12 @@ function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::Abs
     W = Diagonal(sqrt.(wt))
     Wf = W*PSD
     while length(legalλ) > vfit.n
-        param = (W*M)\Wf
+        WM = W*M
+        WWM = W*WM
+        param = WM\Wf
         model = real(M*param)
         n = length(legalλ)
-        importance = (abs2.(Diagonal(wt)*M[:,1:n]*Diagonal(param[1:n])))'*ones(N)
+        importance = (abs2.(WWM[:,1:n]*Diagonal(param[1:n])))'*ones(N)
         least = findfirst(importance .== minimum(importance))
         least === nothing && @show importance, minimum(importance)
         if least ≤ ncomplex(legalλ)  # delete a complex pair
@@ -200,7 +202,7 @@ function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::Abs
     b = param[vfit.n+1:end]
     for i=1:2:ncomplex(legalλ)
         reala = 0.5*(real(a[i]+a[i+1]))
-        imaga = 0.5*abs(imag(a[i]-a[i+1]))
+        imaga = 0.5*(imag(a[i]-a[i+1]))
         a[i] = reala+imaga*1im
         a[i+1] = reala-imaga*1im
     end
