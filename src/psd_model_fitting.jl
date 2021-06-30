@@ -53,17 +53,17 @@ function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
 end
 
 """
-    which_RPs_are_illegal(rp)
+    illegal_RPs(rp)
 
-Return BitVector of length `length(rp)`, true for each value of `rp` that is both real and
-with absolute value ≤ 1. The argument `rp` may be an `AbstractVector` or an `RCPRoots` object.
+Return a subset of `rp`: each value of `rp` that is both real and with absolute value ≤ 1.
+The argument `rp` may be an `AbstractVector` or an `RCPRoots` object.
 """
-which_RPs_are_illegal(rp::AbstractVector) = which_RPs_are_illegal(RCPRoots(rp))
-function which_RPs_are_illegal(rp::RCPRoots)
+illegal_RPs(rp::AbstractVector) = illegal_RPs(RCPRoots(rp))
+function illegal_RPs(rp::RCPRoots)
     # Roots or poles are illegal if the absolute value is ≤1 AND if they are real
     illegal = abs.(rp) .≤ 1
     illegal[1:ncomplex(rp)] .= false
-    illegal
+    rp[illegal]
 end
 
 """
@@ -81,14 +81,14 @@ constant. Other strategies for that case are TBD.
 function make_roots_legal(vfit::PartialFracRational)
     while true
         ma_roots = RCPRoots(roots(vfit))
-        illegal = which_RPs_are_illegal(ma_roots)
-        if sum(illegal) == 0
+        illegal_roots = illegal_RPs(ma_roots)
+        if length(illegal_roots) == 0
             return vfit, ma_roots
         end
 
         if vfit.m ≥ vfit.n
             # Strategy, when m≥n: add a constant to vfit until roots are legal.
-            r = ma_roots[illegal]
+            r = illegal_roots
             midpts = 0.5*(r[1:end-1] .+ r[2:end])
             f = real(vfit(midpts))
             b = vfit.b
@@ -122,8 +122,8 @@ The fit is done with the power spectrum `PSD` sampled at `z=cos.(ω)` and with s
 """
 function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::AbstractVector, wt::AbstractVector; angletol=1e-13)
     λ = RCPRoots(vfit.λ)
-    pole_is_illegal = which_RPs_are_illegal(λ)
-    Nbad = sum(pole_is_illegal)
+    illegal_poles = illegal_RPs(λ)
+    Nbad = length(illegal_poles)
     if Nbad == 0
         return vfit
     end
@@ -140,8 +140,8 @@ function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::Abs
     # for a sensible, small ϵ that yields a Lorentzian of width ωstep at the given frequency.
     # This vector will be longer than λ by the number of illegal poles in λ.
     legalλ = ComplexF64[]
-    for (p, illegal) in zip(λ, pole_is_illegal)
-        if illegal
+    for p in λ
+        if p in illegal_poles
             bonus = 1e-7  # Ensure nonzero step even if abs(p) == 1.
             p_tweaked = complex.(p) + ωstep*sqrt(1+bonus-abs2(p))*1im
             push!(legalλ, p_tweaked)
