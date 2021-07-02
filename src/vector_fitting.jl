@@ -31,7 +31,7 @@
 # n(z) function will contain all the information, the d(z) denominator will be unity, and the nonlinear
 # coefficients b will all be zero. In that limit, n(z) and R(z) will contain all the remaining unknowns, and
 # they can be found in a linear problem. That is, fitting F to data samples s becomes equivalent to
-# fitting F(Z)*d(z)=n(z)+d(z)*R(z) to s*d(z) in the limit that d → 1. We try to approach that limit
+# fitting F(z)*d(z)=n(z)+d(z)*R(z) to s*d(z) in the limit that d → 1. We try to approach that limit
 # iteratively.
 #
 # Based on Gustavsen, B., & Semlyen, A. (1999). "Rational approximation of frequency domain responses by
@@ -127,10 +127,10 @@ function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0
     end
     WM = W*[C Φ]
     optparam = WM\Wf
-    model = real([C Φ]*optparam)
-
     ρ = optparam[1:n]
     c = real(optparam[n+1:end])
+
+    # model = real([C Φ]*optparam)
     # Wtres = norm(W*model.-Wf)
     # @show Wtres, ρ, c
 

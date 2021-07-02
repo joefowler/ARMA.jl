@@ -37,19 +37,30 @@ function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
     w = pulseFT2 ./ PSD.^3
     # Don't let the DC bin have ZERO weight, else model likes to go negative, particularly
     # If there's lots of "action" (poles) near ω=0, or cos(ω)=1.
-    w[1] = w[2]*.01
+    w[1] = w[2]*.2
 
-    aaa_hybrid = aaawt(z, PSD, w, p)
-    vfit = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
+    # Signal models tend to put very little weight at ω=π (like, 1e-9x the max weight).
+    # This can lead to terrible fits up there, as well as illegal roots. Prevent both by checking
+    # 1. ...for illegal roots
+    # 2. ...for minimum function value < 0.1x the minimum target function value.
+    # If either are found, boost the minimum weight and repeat.
+    minpsd = minimum(PSD)
+    while true
+        aaa_hybrid = aaawt(z, PSD, w, p)
+        vfit = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
 
-    vfit = make_poles_legal(vfit, z, PSD, w)
-    vfit, cosroots = make_roots_legal(vfit)
-
-    # zpoles = exp.(acosh.(vfit.λ))
-    # zroots = exp.(acosh.(complex(cosroots)))
-    # var = mean(PSD)
-    model = ARMAModel(vfit)
-    vfit, model
+        vfit = make_poles_legal(vfit, z, PSD, w)
+        minmodel = minimum(real(vfit(z)))
+        if minmodel > 0.2*minpsd
+            cosroots = RCPRoots(roots(vfit))
+            illegal_roots = illegal_RPs(cosroots)
+            if length(illegal_roots) == 0
+                model = ARMAModel(vfit)
+                return vfit, model
+            end
+        end
+        w .+= 2minimum(w)  # Triple min weight each iteration
+    end
 end
 
 """
@@ -80,12 +91,12 @@ constant. Other strategies for that case are TBD.
 """
 function make_roots_legal(vfit::PartialFracRational)
     while true
-        ma_roots = RCPRoots(roots(vfit))
-        illegal_roots = illegal_RPs(ma_roots)
+        cosroots = RCPRoots(roots(vfit))
+        illegal_roots = illegal_RPs(cosroots)
         if length(illegal_roots) == 0
-            return vfit, ma_roots
+            return vfit, cosroots
         end
-        # println("Have to fix $(length(illegal_roots)) illegal roots")
+        # println("Have to fix $(length(illegal_roots)) illegal roots: $illegal_roots")
 
         if vfit.m ≥ vfit.n
             # Strategy, when m≥n: add a constant to vfit until roots are legal.
@@ -93,12 +104,12 @@ function make_roots_legal(vfit::PartialFracRational)
             midpts = 0.5*(r[1:end-1] .+ r[2:end])
             testpts = vcat(midpts, [-1,0,1])
             f = real(vfit(testpts))
-            b = vfit.b
+            b = copy(vfit.b)
             b[1] -= 1.01*minimum(f)
             vfit = PartialFracRational(vfit.λ, vfit.a, b)
         else
             # Strategy, when m<n: I don't have one!
-            @show ma_roots
+            @show cosroots
             @show vfit
             throw(ErrorException("No strategy for making roots legal for m<n."))
         end
