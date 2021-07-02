@@ -81,7 +81,7 @@ end
     EPSILON = 2e-4
 
     # And systematically generate models with between 0 and 6 roots and poles each.
-    allroots = [-1.1, 2.5, -.5+1.1im, -.5-1.1im, .8-.8im, .8+.8im]
+    allroots = [-1.2, 2.5, -.5+1.1im, -.5-1.1im, .8-.8im, .8+.8im]
     allpoles = [1.01, 1.05, .99+.2im, .99-.2im, .95-.4im, .95+.4im]
     for p=0:6
         zpoles = allpoles[1:p]
@@ -90,7 +90,7 @@ end
         elseif p==5
             zpoles = allpoles[2:6]
         end
-        for q=0:6
+        for q=0:min(p+2, 6)
             p+q==0 && continue
             zroots = allroots[1:q]
             if q==3

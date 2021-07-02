@@ -378,7 +378,7 @@ end
 function ARMAModel(psdmodel::PartialFracRational)
     covarIV, bases, amplitudes = spectrum2covar(psdmodel)
     cospoles = psdmodel.λ
-    cosroots = roots(psdmodel; method=:Both, nsteps=20)
+    cosroots = roots(psdmodel; method=:Eig, nsteps=80)
     zpoles = exp.(acosh.(complex(cospoles)))
     zroots = exp.(acosh.(complex(cosroots)))
     ϕcoef = polynomial_from_roots(zpoles)
