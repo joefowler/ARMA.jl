@@ -115,9 +115,9 @@ function derivative(pfr::PartialFracRational, order::Int=1)
     function der(x::Number)
         f0 = 0.0im
         for (ρ, λ) in zip(pfr.a, pfr.λ)
-            f0 += scale*ρ/(x-λ)^(order+1)
+            f0 += ρ/(x-λ)^(order+1)
         end
-        f0 + evalpoly(complex(x), derivative(ChebyshevT(pfr.b), order), false)
+        scale*f0 + evalpoly(complex(x), derivative(ChebyshevT(pfr.b), order), false)
     end
     der
 end
@@ -193,20 +193,20 @@ some root means that we don't really have to worry about this.
 At most `nsteps` will be taken, but iteration will stop early if the step
 is close to the machine precision.
 """
-function improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector; nsteps=25)
+function improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector; nsteps=75)
     knownroots = ComplexF64[]
     f1 = derivative(pfr,1)
     f2 = derivative(pfr,2)
 
+    # Functions to compute the numerator and denominator, and also r,
+    # where r(x) ≡ denom'(x)/denom(x), and its derivative r1 ≡ dr/dx.
+    denom(x) = prod([x-r for r in pfr.λ])
+    numer(x) = pfr(x)*denom(x)
+    r(x) = sum([1.0/(x-ri) for ri in pfr.λ])
+    r1(x) = -sum([1.0/(x-ri)^2 for ri in pfr.λ])
+
     for i=1:length(rough)
         n = pfr.m-length(knownroots)
-
-        # Functions to compute the numerator and denominator, and also r,
-        # where r(x) ≡ denom'(x)/denom(x), and its derivative r1 ≡ dr/dx.
-        denom(x) = prod([x-r for r in pfr.λ])
-        numer(x) = pfr(x)*denom(x)
-        r(x) = sum([1.0/(x-ri) for ri in pfr.λ])
-        r1(x) = -sum([1.0/(x-ri)^2 for ri in pfr.λ])
 
         # For zero suppression, we need Q(x), the product of all so-far known
         # factors in the numerator, and R(x) ≡ Q'(x)/Q(x) and R'(x).
@@ -218,7 +218,7 @@ function improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector;
         bestf, bestx = abs(pfr(x)), x
 
         # Try steps of Laguerre's method, up to `nsteps` or until steps are too small.
-        for _ = 1:nsteps
+        for iter = 1:nsteps
             G = f1(x)/pfr(x)+r(x)-R(x)
             H = G^2-f2(x)/pfr(x)-r1(x)+R1(x)
             rt = sqrt(complex(n-1.0)*(n*H-G^2))
@@ -227,17 +227,21 @@ function improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector;
                 dd = G-rt
             end
             newx = x-n/dd
+            # To break the rare case of limit cycles, try ~half-sized steps 1 time out of 10.
+            if iter%10 == 0
+                fraction = .5*rand()*.25
+                newx = x-fraction*n/dd
+            end
             absf = abs(pfr(newx))
             if absf < bestf
                 bestf, bestx = absf, newx
             end
-            min_step = 3eps(abs(x))
             actual_step = abs(x-newx)
-            actual_step < min_step && break
+            real(actual_step) ≤ 2eps(real(x)) && imag(actual_step) ≤ 2eps(imag(x)) && break
             x = newx
         end
         # Sometimes better value with real(x). Check this.
-        if abs(pfr(real(bestx))) < bestf
+        if abs(pfr(real(bestx))) ≤ bestf
             bestx = real(bestx)
         end
         push!(knownroots, bestx)
