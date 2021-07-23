@@ -41,20 +41,21 @@ function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
 
     # Signal models tend to put very little weight at ω=π (like, 1e-9x the max weight).
     # This can lead to terrible fits up there, as well as illegal roots. Prevent both by checking
-    # 1. ...for illegal roots
-    # 2. ...for minimum function value < 0.1x the minimum target function value.
+    # 1. ...for minimum model value < 0.2x the minimum target function value.
+    # 2. ...for illegal roots
     # If either are found, boost the minimum weight and repeat.
     minpsd = minimum(PSD)
     while true
         aaa_hybrid = aaawt(z, PSD, w, p)
         vfit = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
-
         vfit = make_poles_legal(vfit, z, PSD, w)
+
         minmodel = minimum(real(vfit(z)))
         if minmodel > 0.2*minpsd
             cosroots = RCPRoots(roots(vfit))
             illegal_roots = illegal_RPs(cosroots)
             if length(illegal_roots) == 0
+                # Pass tests 1 and 2: success.
                 model = ARMAModel(vfit)
                 return vfit, model
             end
@@ -214,11 +215,16 @@ function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::Abs
     @assert length(param) == vfit.m+1
     a = param[1:vfit.n]
     b = param[vfit.n+1:end]
+    # Make residues of non-real conjugate pair poles be conjugate pairs
     for i=1:2:ncomplex(legalλ)
         reala = 0.5*(real(a[i]+a[i+1]))
         imaga = 0.5*(imag(a[i]-a[i+1]))
         a[i] = reala+imaga*1im
         a[i+1] = reala-imaga*1im
+    end
+    # Make residues of real poles be real
+    for i=1+ncomplex(legalλ):vfit.n
+        a[i] = real(a[i])
     end
     PartialFracRational(legalλ.z, a, real(b))
 end
