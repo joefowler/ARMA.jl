@@ -204,6 +204,8 @@ function improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector;
     numer(x) = pfr(x)*denom(x)
     r(x) = sum([1.0/(x-ri) for ri in pfr.λ])
     r1(x) = -sum([1.0/(x-ri)^2 for ri in pfr.λ])
+    # @show rough
+    # @show abs.(pfr(rough))
 
     for i=1:length(rough)
         n = pfr.m-length(knownroots)
@@ -219,8 +221,9 @@ function improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector;
 
         # Try steps of Laguerre's method, up to `nsteps` or until steps are too small.
         for iter = 1:nsteps
-            G = f1(x)/pfr(x)+r(x)-R(x)
-            H = G^2-f2(x)/pfr(x)-r1(x)+R1(x)
+            fratio = f1(x)/pfr(x)
+            G = fratio+r(x)-R(x)
+            H = fratio^2-f2(x)/pfr(x)-r1(x)+R1(x)
             rt = sqrt(complex(n-1.0)*(n*H-G^2))
             dd = G+rt
             if abs(G-rt) > abs(dd)
@@ -237,6 +240,7 @@ function improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector;
                 bestf, bestx = absf, newx
             end
             actual_step = abs(x-newx)
+            # @show iter, newx, actual_step, pfr(newx)
             real(actual_step) ≤ 2eps(real(x)) && imag(actual_step) ≤ 2eps(imag(x)) && break
             x = newx
         end
