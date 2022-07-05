@@ -47,9 +47,12 @@ function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
     minpsd = minimum(PSD)
     while true
         aaa_hybrid = aaawt(z, PSD, w, p)
-        vfit = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
-        vfit = make_poles_legal(vfit, z, PSD, w)
-
+        vfit1 = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
+        vfit = make_poles_legal(vfit1, z, PSD, w)
+        # if !(vfit1 === vfit)
+        #     vfit2 = vectorfit(z, PSD, w, aaa_hybrid.poles, q)
+        #     vfit = make_poles_legal(vfit2, z, PSD, w)
+        # end
         minmodel = minimum(real(vfit(z)))
         if minmodel > 0.2*minpsd
             cosroots = RCPRoots(roots(vfit))
@@ -204,7 +207,7 @@ function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::Abs
     end
     if length(legalλ) < vfit.n
         @assert length(legalλ) == vfit.n-1
-        newpole = 1/cos(ωstep)
+        newpole = 1/cos(2ωstep)
         legalλ = RCPRoots([legalλ..., newpole])
         Mpf = [Mpf 1.0 ./(z.-newpole)]
         M = [Mpf Mrem]
