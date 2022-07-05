@@ -17,7 +17,7 @@ include("vector_fitting.jl")
 
 fit_psd(ω::AbstractVector, PSD::Function, pulsemodel::AbstractVector, p, q=-1) = fit_psd(PSD.(ω), pulsemodel, p, q)
 
-function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
+function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1; invert=false)
     if p<0
         throw(DomainError("fit_psd got AR order p=$p, requires at least 0."))
     end
@@ -27,14 +27,25 @@ function fit_psd(PSD::AbstractVector, pulsemodel::AbstractVector, p, q=-1)
 
     N = length(PSD)
     ω = LinRange(0, π, N)
-    ωstep = ω[2]
+    ωstep = π/(N-1)
     z = cos.(ω)
-    pulseFT2 = abs2.(rfft(pulsemodel)/maximum(pulsemodel))
+
+    window = 1.0 .- abs.(LinRange(-1, 1, length(pulsemodel)))
+    pulseFT2 = abs2.(rfft(pulsemodel.*window)/maximum(pulsemodel))
     if N != length(pulseFT2)
         throw(DimensionMismatch("fit_psd: length(PSD) $N != length(rfft(pulsemodel)) $(length(pulseFT2))"))
     end
 
-    w = pulseFT2 ./ PSD.^3
+    if invert
+        PSD = 1.0 ./ PSD
+        PSD[1] = 2PSD[2]-PSD[3]
+        w = pulseFT2 .* PSD
+    else
+        PSD = copy(PSD)
+        PSD[1] = 2PSD[2]-PSD[3]
+        w = pulseFT2 ./ PSD.^3
+    end
+
     # Don't let the DC bin have ZERO weight, else model likes to go negative, particularly
     # If there's lots of "action" (poles) near ω=0, or cos(ω)=1.
     w[1] = w[2]*.2
