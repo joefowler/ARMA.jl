@@ -1,3 +1,5 @@
+include("real_rationals.jl")
+
 """
     struct PartialFracRational
 

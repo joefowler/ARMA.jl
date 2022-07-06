@@ -9,7 +9,6 @@
 # 1c. "Fix" poles by moving off the real line in [-1,1] to make f(x) be nonzero and finite at all real cos(ω)∈[-1,1].
 # 2. Find the roots of f
 
-include("RCPRoots.jl")
 include("BarycentricRational.jl")
 include("weightedAAA.jl")
 include("PartialFracRational.jl")
