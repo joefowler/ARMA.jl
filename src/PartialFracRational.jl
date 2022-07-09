@@ -55,6 +55,8 @@ end
 PartialFracRational(b::AbstractVector{U};polyMin::Number=-1, polyMax::Number=+1) where {U} =
     PartialFracRational(Float64[], Float64[], b; polyMin, polyMax)
 
+PartialFracRational(λ::RCPRoots, a::AbstractVector{T}, b::AbstractVector{U}=[];
+    polyMin::Number=-1, polyMax::Number=+1) where {T, U} = PartialFracRational(λ.z, a, b; polyMin, polyMax)
 function PartialFracRational(λ::AbstractVector{S}, a::AbstractVector{T}, b::AbstractVector{U}=[];
     polyMin::Number=-1, polyMax::Number=+1) where {S, T, U}
     if b == []

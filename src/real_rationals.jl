@@ -63,3 +63,26 @@ end
 function rrat_eval(z::AbstractVector, rr::RealRational)
     f = evalpoly.(z, rr.ϕ) ./ evalpoly.(z, rr.θ)
 end
+
+function PartialFracRational(rr::RealRational)
+    λ = rr.zpoles
+
+    # How many partial fraction terms to compute
+    npf = min(rr.n, rr.m+1)
+    if (rr.n%2 == 0) && (rr.m^2 == 0) && rr.m < rr.n
+        npf -= 1
+    end
+
+    @assert npf == rr.n # Not implemented yet to have fractional factors * partial fraction
+
+    dϕdz = derivative(rr.ϕ)
+    residues = 0λ
+    for (j,p) in enumerate(λ)
+        residues[j] = -rr.θ(p)/(p*dϕdz(p))
+    end
+
+    @assert rr.m == rr.n # Not implemented yet to have non-constant remainder
+    remainder = [rr.θ.coeffs[end]/rr.ϕ.coeffs[end]]
+    @show λ, residues, remainder
+    PartialFracRational(λ, residues, remainder)
+end
