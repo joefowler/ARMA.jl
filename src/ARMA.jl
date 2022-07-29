@@ -31,7 +31,8 @@ export
 #   and for fitting the best model of that order.
 
 include("model_selection.jl")
-include("psd_model_fitting.jl")
+# include("psd_model_fitting.jl")
+include("real_rationals.jl")
 
 
 """
@@ -319,11 +320,12 @@ end
 
 function spectrum2covar(spectrum::PartialFracRational)
     p = length(spectrum.λ)
-    q = length(spectrum.b)+p-1
+    q = length(spectrum.b)+spectrum.m-1
+    @assert q==spectrum.q
     cospoles = spectrum.λ
     zpoles = RCPRoots(exp.(acosh.(complex(cospoles))))
     if eltype(cospoles) <: Real
-        zpoles = real(zpoles)
+        zpoles = RCPRoots(real(zpoles))
     end
     bases = 1.0 ./ zpoles
     amplitudes = -4π*spectrum.a ./ (zpoles .- 1.0 ./ zpoles)
@@ -342,7 +344,7 @@ function spectrum2covar(spectrum::PartialFracRational)
     covarIV = zeros(Float64, q+1)
     covarIV[1:q+1-p] .= π*real(spectrum.b)
     covarIV[1] *= 2
-    for i=1:spectrum.n
+    for i=1:spectrum.p
         covarIV .+= real(amplitudes[i]*(bases[i].^(0:length(covarIV)-1)))
     end
     covarIV, bases, amplitudes

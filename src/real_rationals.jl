@@ -1,6 +1,31 @@
 include("RCPRoots.jl")
 
 using Polynomials
+
+
+"""
+    struct RealRational
+
+Represents an order `(m,n)` rational function in polynomial-over-polynomial form. That is, as
+
+    f(z) = (Σ i=0:m θ_i*z^i) / (Σ i=0:n b[i]*ϕ_i*z^i)
+
+- `θ[0:m]` are the coefficients of the numerator polynomial
+- `ϕ[0:n]` are the coefficients of the denominator polynomial (we rescale θ and ϕ to enforce ϕ[0]=1)
+- `m,n` are the degree of the numerator and denominator polynomials, respectively
+
+# Constructors
+
+    RealRational(θ, ϕ)
+    RealRational(zroots, zpoles, f0)
+
+# Arguments
+- `θ`: the numerator as an `AbstractPolynomial` or a vector of coefficients of one.
+- `ϕ`: the denominator as an `AbstractPolynomial` or a vector of coefficients of one.
+- `zroots`: the roots of `f` and `θ`.
+- `zpoles`: the poles of `f` (≡ the roots of `ϕ`).
+- `f0`: the value of `f(0)` is required to scale `f` when only roots and poles are given.
+"""
 struct RealRational{T<:AbstractPolynomial}
     θ::T
     ϕ::T
@@ -12,7 +37,7 @@ struct RealRational{T<:AbstractPolynomial}
     # function RealRational{T}(θ::AbstractPolynomial{T}, ϕ::AbstractPolynomial{T},
     #     zroots::RCPRoots,zpoles::RCPRoots) where T <: Real
     function RealRational(θ::AbstractPolynomial, ϕ::AbstractPolynomial,
-        zroots::RCPRoots,zpoles::RCPRoots)
+        zroots::RCPRoots, zpoles::RCPRoots)
         m = degree(θ)
         n = degree(ϕ)
         @assert m ≥ 0
@@ -58,31 +83,10 @@ Base.:*(rr::RealRational, scale::Number) = RealRational(rr.θ*scale, rr.ϕ, rr.z
 Evaluate the real-coefficient rational function `rr` at `z` (scalar or array).
 """
 function rrat_eval(z::Number, rr::RealRational)
-    f = evalpoly(z, rr.ϕ) ./ evalpoly(z, rr.θ)
+    f = evalpoly(z, rr.ϕ) / evalpoly(z, rr.θ)
 end
 function rrat_eval(z::AbstractVector, rr::RealRational)
     f = evalpoly.(z, rr.ϕ) ./ evalpoly.(z, rr.θ)
 end
 
-function PartialFracRational(rr::RealRational)
-    λ = rr.zpoles
-
-    # How many partial fraction terms to compute
-    npf = min(rr.n, rr.m+1)
-    if (rr.n%2 == 0) && (rr.m^2 == 0) && rr.m < rr.n
-        npf -= 1
-    end
-
-    @assert npf == rr.n # Not implemented yet to have fractional factors * partial fraction
-
-    dϕdz = derivative(rr.ϕ)
-    residues = 0λ
-    for (j,p) in enumerate(λ)
-        residues[j] = -rr.θ(p)/(p*dϕdz(p))
-    end
-
-    @assert rr.m == rr.n # Not implemented yet to have non-constant remainder
-    remainder = [rr.θ.coeffs[end]/rr.ϕ.coeffs[end]]
-    @show λ, residues, remainder
-    PartialFracRational(λ, residues, remainder)
-end
+include("PartialFracRational.jl")

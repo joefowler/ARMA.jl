@@ -9,9 +9,9 @@
 # 1c. "Fix" poles by moving off the real line in [-1,1] to make f(x) be nonzero and finite at all real cos(ω)∈[-1,1].
 # 2. Find the roots of f
 
+include("real_rationals.jl")
 include("BarycentricRational.jl")
 include("weightedAAA.jl")
-include("PartialFracRational.jl")
 include("vector_fitting.jl")
 
 fit_psd(ω::AbstractVector, PSD::Function, pulsemodel::AbstractVector, p, q=-1) = fit_psd(PSD.(ω), pulsemodel, p, q)
@@ -182,8 +182,8 @@ function make_poles_legal(vfit::PartialFracRational, z::AbstractVector, PSD::Abs
 
     Mpf = hcat([1.0 ./ (z.-L) for L in legalλ]...)
     zscaled = 2(z.-vfit.polyMin)/(vfit.polyMax-vfit.polyMin) .- 1
-    Mrem = ones(eltype(zscaled), N, vfit.m+1-vfit.n)
-    for i=1:vfit.m-vfit.n
+    Mrem = ones(eltype(zscaled), N, vfit.q+1-vfit.p)
+    for i=1:vfit.q-vfit.p
         Cheb = ChebyshevT([zeros(i)..., 1.0])
         Mrem[:, i+1] = Cheb.(zscaled)
     end

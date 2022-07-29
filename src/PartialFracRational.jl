@@ -1,19 +1,28 @@
-include("real_rationals.jl")
-
 """
     struct PartialFracRational
 
-Represent an order `(m,n)` rational function in partial fraction form. That is, as
+Represents an order `(q,p)` rational function `f` in partial fraction form. That is, as
 
-    f(z) = Σ i=1:n a[i]/(z-λ[i]) + Σ i=0:(m-n) b[i+1]*T_i(zs)
+    f(z) = [Σ i=1:m a[i]/(z-λ[i]) + Σ i=0:(q-m) b[i+1]*T_i(zs)] * [ ∏ i=m+1:p 1/(z-λ[i])]
 
 where the first sum is the partial fraction expansion, and the second is the polynomial remainder, expanded
 in terms of Chebyshev polynomials. The remainder argument `zs` is equal to `z` by default but can be changed
-to an affine transformation of `z` instead.
-- `λ[1:n]` are the simple poles of f
-- `a[1:n]` are the residues at those poles
-- `b[1:m-n+1]` are the coefficients of the Chebyshev polynomial expansion
-- `T_i` is the Chebyshev polynomial of degree i
+to an affine transformation of `z` instead. The final product contains additional poles when they outnumber
+the roots by at least one (`p>q+1`).
+
+- `(q,p)` are the degree of the numerator and numerator, respectively.
+- `m` is the number of residues, either `min(p,q+1)`, or one less than this (in the special case that
+  `p` and `q` are both even and `q<p`).
+- `λ[1:p]` are the simple poles of `f`.
+- `a[1:m]` are the residues at the first `m≤p` poles.
+- `b[1:q-m+1]` are the coefficients of the Chebyshev polynomial expansion of the remainder term.
+- `T_i` is the Chebyshev polynomial of degree `i`.
+
+Because of how `m` is constrained, exactly one of the following is true:
+
+1. The product equals 1 (when `m=p`).
+2. The second sum equals 0 (when `m=q+1`).
+3. The second sum equals a non-zero constant (when `m=q`).
 
 This object cannot accomodate poles with multiplicity > 1, unfortunately. In practice, however,
 the effect of a multiple pole can be approximated as closely as needed by two nearby poles.
@@ -26,10 +35,10 @@ the effect of a multiple pole can be approximated as closely as needed by two ne
 
 # Arguments
 - `λ`: vector of poles
-- `a`: vector of residues (must be same length as `λ`)
-- `b`: vector of coefficients of Chebyshev polynominals in the remainder. If `b` is omitted, the remainder
-  is assumed to be zero. If both `λ` and `a` are omitted, no partial fractions are assumed. They cannot
-  all be omitted.
+- `a`: vector of residues (must be no longer than `λ`)
+- `b`: vector of coefficients of Chebyshev polynominals in the remainder, or a constant to represent
+  a constant remainder. If `b` is omitted, the remainder is assumed to be zero. If both `λ` and `a`
+  are omitted, no partial fractions are assumed. They cannot all be omitted.
 
 # Keyword arguments
 - `polyMin::Number=-1`
@@ -45,18 +54,26 @@ struct PartialFracRational{T <: AbstractVector, U <: Number}
     a::T  # residues
     b::T  # coefficients of the remainder polynomial, a Chebyshev series
 
-    m::Int  # degree of the numerator polynomial
-    n::Int  # degree of the denominator polynomial
+    q::Int  # degree of the numerator polynomial
+    p::Int  # degree of the denominator polynomial
+    m::Int  # number of residues, ≤p and ≤q+1
     polyMin::U
     polyMax::U
 end
 
 # Constructors
-PartialFracRational(b::AbstractVector{U};polyMin::Number=-1, polyMax::Number=+1) where {U} =
+PartialFracRational(b::AbstractVector{U}; polyMin::Number=-1,polyMax::Number=+1) where {U} =
     PartialFracRational(Float64[], Float64[], b; polyMin, polyMax)
+PartialFracRational(b::Real; polyMin::Number=-1,polyMax::Number=+1) =
+    PartialFracRational(Float64[], Float64[], [b]; polyMin, polyMax)
 
 PartialFracRational(λ::RCPRoots, a::AbstractVector{T}, b::AbstractVector{U}=[];
     polyMin::Number=-1, polyMax::Number=+1) where {T, U} = PartialFracRational(λ.z, a, b; polyMin, polyMax)
+PartialFracRational(λ::RCPRoots, a::AbstractVector{T}, b::Number;
+    polyMin::Number=-1, polyMax::Number=+1) where {T} = PartialFracRational(λ.z, a, [b]; polyMin, polyMax)
+PartialFracRational(λ::AbstractVector{S}, a::AbstractVector{T}, b::Number;
+    polyMin::Number=-1, polyMax::Number=+1) where {S, T} = PartialFracRational(λ, a, [b]; polyMin, polyMax)
+
 function PartialFracRational(λ::AbstractVector{S}, a::AbstractVector{T}, b::AbstractVector{U}=[];
     polyMin::Number=-1, polyMax::Number=+1) where {S, T, U}
     if b == []
@@ -65,20 +82,23 @@ function PartialFracRational(λ::AbstractVector{S}, a::AbstractVector{T}, b::Abs
     λ, a, b = promote(float(λ), float(a), float(b))
     polyMin, polyMax = promote(polyMin, polyMax)
 
-    n = length(λ)
-    if n != length(a)
-        throw(DimensionMismatch("length(λ) $(length(λ)) != length(a) $(length(a))"))
+    p = length(λ)
+    m = length(a)
+    if m > p
+        throw(DimensionMismatch("length(a) $(m) > length(λ) $(p)"))
     end
-    m = length(b)-1+n
-    @assert m ≥ n-1
+    q = length(b)-1+m
+    if m > q+1
+        throw(DimensionMismatch("length(a) $(m) > length(a)+length(b)+1 $(q+1)"))
+    end
     @assert polyMax != polyMin
-    PartialFracRational(λ, a, b, m, n, polyMin, polyMax)
+    PartialFracRational(λ, a, b, q, p, m, polyMin, polyMax)
 end
 
 Base.:*(scale::Number, pfr::PartialFracRational) = Base.:*(pfr, scale)
 Base.:*(pfr::PartialFracRational, scale::Number) = PartialFracRational(pfr.λ, pfr.a*scale, pfr.b*scale; pfr.polyMin, pfr.polyMax)
 
-
+# An alias: calling a `PartialFracRational` is equivalent to calling `pfrat_eval` on it.
 (pfr::PartialFracRational)(z) = pfrat_eval(z, pfr)
 
 """
@@ -95,12 +115,35 @@ function pfrat_eval(z, pfr::PartialFracRational)
     T = promote_type(eltype(z), eltype(pfr.a), typeof(pfr.polyMin), Float64)
     remainder = ChebyshevT(pfr.b)
     f = evalpoly.(zscaled, remainder, false)
-    for i=1:pfr.n
+    for i=1:pfr.m
         f .+= pfr.a[i]./(zvec.-pfr.λ[i])
+    end
+    for i=1+pfr.m:pfr.p
+        f ./= (zvec.-pfr.λ[i])
     end
     f = arg_isscalar ? f[1] : reshape(f, size(z))
 end
 
+function upgrade(pfr::PartialFracRational)
+    if pfr.p ≤ pfr.m
+        return pfr
+    end
+
+    @assert length(pfr.b) == 1
+    R0 = pfr.b[1]
+    pup = zeros(eltype(pfr.a), pfr.p)
+    for i=1:pfr.m
+        λ = pfr.λ[i]
+        poles = [λ, pfr.λ[1+pfr.m:end]]
+        v = partial_frac_decomp(pfr.a[i], poles)
+        pup[i] = v[1]
+        pup[1+pfr.m:end] += v[2:end]
+    end
+    if R0 != 0
+        pup[1+pfr.m:end] += partial_frac_decomp(R0, pfr.λ[1+pfr.m:end])
+    end
+    PartialFracRational(pfr.λ, pup)
+end
 
 """
     derivative(pfr::PartialFracRational, order::Int=1)
@@ -110,6 +153,13 @@ Returns a function that evaluates the derivative of `pfr`.
 function derivative(pfr::PartialFracRational, order::Int=1)
     order <= 0 && return pfr
 
+    # A PFR with p>m will be hard to differentiate analytically. Thus,
+    # "upgrade" it to order (q,p) with q=p before differentiating.
+    if pfr.p > pfr.m
+        pfr = upgrade(pfr)
+    end
+    @assert pfr.p ≤ pfr.m
+
     # Scale = (-1)^order * factorial(order)
     scale = -1.0
     for i=2:order
@@ -118,7 +168,7 @@ function derivative(pfr::PartialFracRational, order::Int=1)
 
     function der(x::Number)
         f0 = 0.0im
-        for (ρ, λ) in zip(pfr.a, pfr.λ)
+        for (ρ, λ) in zip(pfr.a, pfr.λ[1:pfr.m])
             f0 += ρ/(x-λ)^(order+1)
         end
         scale*f0 + evalpoly(complex(x), derivative(ChebyshevT(pfr.b), order), false)
@@ -126,6 +176,7 @@ function derivative(pfr::PartialFracRational, order::Int=1)
     der
 end
 
+import Polynomials.roots, Polynomials.derivative
 """
     roots(pfr::PartialFracRational; method=:Eig, nsteps=25)
 
@@ -212,7 +263,7 @@ function improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector;
     # @show abs.(pfr(rough))
 
     for i=1:length(rough)
-        n = pfr.m-length(knownroots)
+        n = pfr.q-length(knownroots)
 
         # For zero suppression, we need Q(x), the product of all so-far known
         # factors in the numerator, and R(x) ≡ Q'(x)/Q(x) and R'(x).
@@ -262,17 +313,17 @@ end
 
 Estimate the roots of rational function `pfr` by the method of computing the effective
 numerator polynomial (by coefficients) and finding its roots. For polynomials of high
-degree (`pfr.m` ≳ 5-10), the computation by coefficients can lead to poor conditioning
+degree (`pfr.q` ≳ 5-10), the computation by coefficients can lead to poor conditioning
 and dubious results.
 """
 function roots_poly_method(pfr::PartialFracRational)
-    p = Polynomial(ChebyshevT(pfr.b))
-    for j=1:pfr.n
+    p = ChebyshevT(pfr.b)
+    for j=1:pfr.m
         p *= Polynomial([-pfr.λ[j],1])
     end
-    for i=1:pfr.n
+    for i=1:pfr.m
         p1 = Polynomial(pfr.a[i])
-        for j=1:pfr.n
+        for j=1:pfr.m
             i==j && continue
             p1 *= Polynomial([-pfr.λ[j],1])
         end
@@ -287,7 +338,7 @@ end
 Compute the partial fraction decomposition of num / Π_i=1:n (z-α[i])
 as ∑ i=1:n r[i]/(z-α[i]). Return the coefficient vector `r`.
 
-Uses the general relationship P(z)/Q(z) = ∑ P(α[i])/Q'(α[i]) * 1/(z-α[i])
+Uses the general relationship P(z)/Q(z) = ∑_i=1:n P(α[i])/Q'(α[i]) * 1/(z-α[i])
 """
 function partial_frac_decomp(num::Number, poles::AbstractVector)
     n = length(poles)
@@ -309,32 +360,32 @@ end
 Estimate the roots of rational function `pfr` by the method of eigenvalues.
 """
 function roots_eigenvalue_method(pfr::PartialFracRational)
-    # The pfr is a model of F(z)=N(z)/D(z)+R(z)
+    # The pfr is a model of F(z) = N(z)/D(z)+R(z)
     # Now find a model for F(z)/R(z) = N(z)/ [D(z)R(z)] + 1 as a partial fraction
     # Once it's a full partial fraction, it will have new poles (the roots of R) but
     # the same roots.
-    p, q = pfr.n, pfr.m
-    if q<p
-        return roots_pfrac0(pfr.a, pfr.λ)
-    elseif q==p
+    if pfr.q < pfr.m
+        return roots_pfrac0(pfr.a, pfr.λ[1:pfr.m])
+    elseif pfr.q == pfr.m
+        @assert length(pfr.b) == 1
         return roots_pfrac(pfr.a, pfr.λ, -pfr.b[end])
     end
 
-    # q>p
+    # q>m
     β = chebyshev_roots(real(pfr.b))
-    if p==0
+    if pfr.m==0
         return β
     end
 
-    # q>p>0
+    # q>m>0
     α = pfr.b[end]
     a = pfr.a / α
-    bc = zeros(ComplexF64, q)
-    for i=1:p
+    bc = zeros(ComplexF64, pfr.q)
+    for i=1:pfr.m
         poles = [pfr.λ[i], β...]
         pfc = partial_frac_decomp(a[i], poles)
         bc[i] = pfc[1]
-        bc[end-(q-p)+1:end] .+= pfc[2:end]
+        bc[end-(pfr.q-pfr.m)+1:end] .+= pfc[2:end]
     end
     roots_pfrac1(-bc, vcat(pfr.λ, β))
 end
@@ -417,4 +468,75 @@ function chebyshev_roots(c::AbstractVector)
     # Rotated companion matrix reduces error, supposedly.
     m = chebyshev_companion(c)[end:-1:1, end:-1:1]
     eigvals(m)
+end
+
+"""
+    roots_pfrac0(w::AbstractVector, x::AbstractVector)
+
+Returns roots of a partial fraction that sums to zero, specifically
+the `n-1` solutions `p` to the equation:
+
+`0 = Σ i=1:n w[i]/(p-x[i])`
+
+There are `n-1` solutions, where `n` is the length of the vectors of weights `w` and of nodes `x`.
+"""
+function roots_pfrac0(w::AbstractVector, x::AbstractVector)
+    n = length(w)
+    if n != length(x)
+        throw(ErrorException("roots_pfrac0(w, x) has length(w)=$(length(w)) != length(x)=$(length(x))."))
+    end
+    M = diagm(x) - w/sum(w)*x'
+    v = eigvals(M)
+    # The vector v will contain the (n-1) desired roots, plus 0. Remove the 0.
+    _, idx = findmin(abs2.(v))
+    deleteat!(v, idx)
+    v
+end
+
+"""
+    roots_pfrac1(w::AbstractVector, x::AbstractVector)
+
+Returns roots of a partial fraction that sums to one, specifically
+the solutions `p` to the equation:
+
+`1 = Σ i=1:n w[i]/(p-x[i])`
+
+There are `n` solutions, where `n` is the length of the vectors of weights `w` and of nodes `x`.
+"""
+function roots_pfrac1(w::AbstractVector, x::AbstractVector)
+    n = length(w)
+    if n != length(x)
+        throw(ErrorException("roots_pfrac1(w, x) has length(w)=$(length(w)) != length(x)=$(length(x))."))
+    end
+    M = diagm(x) + w*ones(n)'
+    r = eigvals(M)
+    for i=1:n
+        # Take up to 3 Newton steps
+        for iter = 1:3
+            f = sum(w./(r[i].-x))-1
+            f1 = -sum(w./(r[i].-x).^2)
+            step = f/f1
+            r[i] -= step
+            abs(step) < 1e-13*max(1, abs(r[i])) && break
+        end
+    end
+    r
+end
+
+"""
+    roots_pfrac(w::AbstractVector, x::AbstractVector, s::Number)
+
+Returns roots of a partial fraction that sums to `s`, specifically
+the solutions `p` to the equation:
+
+`s = Σ i=1:n w[i]/(p-x[i])`
+
+There are `n` solutions, where `n` is the length of the vectors of weights `w` and of nodes `x`.
+When `s==0`, however, we omit the implied solution at `p → ∞` and return the other `n-1` roots.
+"""
+function roots_pfrac(w::AbstractVector, x::AbstractVector, s::Number)
+    if s==0
+        return roots_pfrac0(w, x)
+    end
+    roots_pfrac1(w/s, x)
 end
