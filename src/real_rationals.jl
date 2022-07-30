@@ -58,7 +58,7 @@ function RealRational(θ::AbstractPolynomial, ϕ::AbstractPolynomial)
     zroots = RCPRoots(roots(θ))
     zpoles = RCPRoots(roots(ϕ))
     # Normalize the input coefficient vectors
-    scale = ϕ.coeffs[1]
+    scale = ϕ.coeffs[0]
     θ = θ ./ scale
     ϕ = ϕ ./ scale
     RealRational(θ,ϕ,zroots,zpoles)
@@ -67,8 +67,8 @@ end
 function RealRational(zroots::AbstractVector,zpoles::AbstractVector,f0::Real)
     θ = fromroots(zroots)
     ϕ = fromroots(zpoles)
-    θ = θ.*(f0/θ[1])
-    ϕ = ϕ./ϕ[1]
+    θ = θ.*(f0/θ[0])
+    ϕ = ϕ./ϕ[0]
     RealRational(θ,ϕ,RCPRoots(zroots),RCPRoots(zpoles))
 end
 
@@ -83,10 +83,10 @@ Base.:*(rr::RealRational, scale::Number) = RealRational(rr.θ*scale, rr.ϕ, rr.z
 Evaluate the real-coefficient rational function `rr` at `z` (scalar or array).
 """
 function rrat_eval(z::Number, rr::RealRational)
-    f = evalpoly(z, rr.ϕ) / evalpoly(z, rr.θ)
+    f = evalpoly(z, rr.θ) / evalpoly(z, rr.ϕ)
 end
 function rrat_eval(z::AbstractVector, rr::RealRational)
-    f = evalpoly.(z, rr.ϕ) ./ evalpoly.(z, rr.θ)
+    f = evalpoly.(z, rr.θ) ./ evalpoly.(z, rr.ϕ)
 end
 
 include("PartialFracRational.jl")
