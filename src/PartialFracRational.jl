@@ -129,17 +129,17 @@ function upgrade(pfr::PartialFracRational)
         return pfr
     end
 
-    @assert length(pfr.b) == 1
-    R0 = pfr.b[1]
+    @assert length(pfr.b) ≤ 1
     pup = zeros(eltype(pfr.a), pfr.p)
     for i=1:pfr.m
         λ = pfr.λ[i]
-        poles = [λ, pfr.λ[1+pfr.m:end]]
+        poles = [λ, pfr.λ[1+pfr.m:end]...]
         v = partial_frac_decomp(pfr.a[i], poles)
         pup[i] = v[1]
         pup[1+pfr.m:end] += v[2:end]
     end
-    if R0 != 0
+    if length(pfr.b) > 0
+        R0 = pfr.b[1]
         pup[1+pfr.m:end] += partial_frac_decomp(R0, pfr.λ[1+pfr.m:end])
     end
     PartialFracRational(pfr.λ, pup)
@@ -249,6 +249,13 @@ At most `nsteps` will be taken, but iteration will stop early if the step
 is close to the machine precision.
 """
 function improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector; nsteps=75)
+    # A PFR with p>m will be hard to differentiate analytically. Thus,
+    # "upgrade" it to order (q,p) with q=p before differentiating.
+    if pfr.p > pfr.m
+        pfr = upgrade(pfr)
+    end
+    @assert pfr.p ≤ pfr.m
+
     knownroots = ComplexF64[]
     f1 = derivative(pfr,1)
     f2 = derivative(pfr,2)
@@ -368,7 +375,7 @@ function roots_eigenvalue_method(pfr::PartialFracRational)
         return roots_pfrac0(pfr.a, pfr.λ[1:pfr.m])
     elseif pfr.q == pfr.m
         @assert length(pfr.b) == 1
-        return roots_pfrac(pfr.a, pfr.λ, -pfr.b[end])
+        return roots_pfrac(pfr.a, pfr.λ[1:pfr.m], -pfr.b[end])
     end
 
     # q>m
@@ -485,7 +492,7 @@ function roots_pfrac0(w::AbstractVector, x::AbstractVector)
     if n != length(x)
         throw(ErrorException("roots_pfrac0(w, x) has length(w)=$(length(w)) != length(x)=$(length(x))."))
     end
-    M = diagm(x) - w/sum(w)*x'
+    M = diagm(x) - w/sum(w)*transpose(x)
     v = eigvals(M)
     # The vector v will contain the (n-1) desired roots, plus 0. Remove the 0.
     _, idx = findmin(abs2.(v))

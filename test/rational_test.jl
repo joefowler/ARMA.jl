@@ -72,6 +72,20 @@ end
 end
 
 @testset "PFR_roots" begin
+    # Check that roots_pfrac0 works for real or complex values
+    for r in ([1,2], [1+2im,4-2im])
+        p = [3,4+1im,4+3im]
+        weights = [
+            (p[1]-r[1])*(p[1]-r[2])/(p[1]-p[2])/(p[1]-p[3]),
+            (p[2]-r[1])*(p[2]-r[2])/(p[2]-p[1])/(p[2]-p[3]),
+            (p[3]-r[1])*(p[3]-r[2])/(p[3]-p[1])/(p[3]-p[2])
+        ]
+        rs = ARMA.roots_pfrac0(weights, p)
+        @test isapprox(sum([weights[i]./(rs[1].-p[i]) for i=1:3]), 0; atol=1e-11)
+        @test isapprox(sum([weights[i]./(rs[2].-p[i]) for i=1:3]), 0; atol=1e-11)
+    end
+
+
     p1 = PartialFracRational([-1, -2], [3, 2])
     p2 = PartialFracRational([-1, -2], [6, -12], [1])
     p3 = PartialFracRational([-1, -2], [-6, 24], [-6, 1])
@@ -90,7 +104,7 @@ end
 
     function mindist(r::Vector)
         md = Inf
-        for i=1:pfr.m
+        for i=1:length(r)
             for j=1:i-1
                 md = min(md, abs(r[i]-r[j]))
             end
@@ -98,6 +112,35 @@ end
         md
     end
 
+    testpoles = [1+1im,1-1im,.8+.7im,.8-.7im,1.1,1.01,-1.5,1.03]
+    testresidues = [1.1+.1im,1.1-.1im,1.2+.2im,1.2-.2im,1.04,-1.5,2,1.4]
+    remainder = [1,2,3,4,5,6,7,8.]
+    for p=4:8
+        for q=3:8
+            m = min(p, q+1)
+            # Follow the rule that even p, even q, and q<p need a constant remainder to keep from
+            # splitting a complex pair of poles. (This way, either the partial fractions or the
+            # extra factors of 1/(x-λ) use an EVEN number of poles.)
+            if (p%2==0) && (q%2==0) && (m<p)
+                m -= 1
+            end
+
+            pfr = PartialFracRational(testpoles[1:p], testresidues[1:m],remainder[1:q-m+1])
+            @test pfr.p == p
+            @test pfr.q == q
+            @test pfr.m == m
+            # Make sure all roots are distinct to the 1e-5 level and that the function
+            # value is always small.
+            for method in (:Eig, :Poly, :Both)
+                r = roots(pfr; method=method)
+                @test length(r) ==  q
+                @test mindist(r) > 1e-5
+                @test all(abs.(pfr(r)) .< 1e-7)
+            end
+        end
+    end
+
+    # The above suite of tests should be adequate, but why not keep these legacy tests in place, too?
     pole = ComplexF64[0.9999138564455727 + 1.311948345590019e-5im, 0.9999138564455727 - 1.311948345590047e-5im, 1.0000039082557004, 1.0001814813594927]
     residue = ComplexF64[-0.009648614144046466 - 0.015909481835920475im, -0.009648614144046797 + 0.01590948183592052im, 0.010087771996966484, -0.6895883924969154]
     remainder = [52.25867169674221, 34.27540419493968, -0.8505261672687883, 4.1627407018820985, -9.675698272165642]
