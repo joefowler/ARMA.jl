@@ -124,27 +124,6 @@ function pfrat_eval(z, pfr::PartialFracRational)
     f = arg_isscalar ? f[1] : reshape(f, size(z))
 end
 
-function upgrade(pfr::PartialFracRational)
-    if pfr.p ≤ pfr.m
-        return pfr
-    end
-
-    @assert length(pfr.b) ≤ 1
-    pup = zeros(eltype(pfr.a), pfr.p)
-    for i=1:pfr.m
-        λ = pfr.λ[i]
-        poles = [λ, pfr.λ[1+pfr.m:end]...]
-        v = partial_frac_decomp(pfr.a[i], poles)
-        pup[i] = v[1]
-        pup[1+pfr.m:end] += v[2:end]
-    end
-    if length(pfr.b) > 0
-        R0 = pfr.b[1]
-        pup[1+pfr.m:end] += partial_frac_decomp(R0, pfr.λ[1+pfr.m:end])
-    end
-    PartialFracRational(pfr.λ, pup)
-end
-
 """
     derivative(pfr::PartialFracRational, order::Int=1)
 
@@ -250,9 +229,9 @@ is close to the machine precision.
 """
 function improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector; nsteps=75)
     # A PFR with p>m will be hard to differentiate analytically. Thus,
-    # "upgrade" it to order (q,p) with q=p before differentiating.
+    # change it to order (q,m) (where m=q+1 or m=q) by dropping those final (p-m) factors before differentiating.
     if pfr.p > pfr.m
-        pfr = upgrade(pfr)
+        pfr = PartialFracRational(pfr.λ[1:pfr.m], pfr.a, pfr.b)
     end
     @assert pfr.p ≤ pfr.m
 
