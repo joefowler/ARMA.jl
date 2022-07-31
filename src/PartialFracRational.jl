@@ -3,11 +3,12 @@
 
 Represents an order `(q,p)` rational function `f` in partial fraction form. That is, as
 
-    f(z) = [Σ i=1:m a[i]/(z-λ[i]) + Σ i=0:(q-m) b[i+1]*T_i(zs)] * [ ∏ i=m+1:p 1/(z-λ[i])]
+    f(z) = [Σ i=1:m a[i]/(z-λ[i]) + Σ j=0:(q-m) b[i]*zs^j] * [ ∏ i=m+1:p 1/(z-λ[i])]
+    f(z) = [P(z) + R(z)]*E(z)
 
-where the first sum is the partial fraction expansion, and the second is the polynomial remainder, expanded
-in terms of Chebyshev polynomials. The remainder argument `zs` is equal to `z` by default but can be changed
-to an affine transformation of `z` instead. The final product contains additional poles when they outnumber
+where the first sum `P` is the partial fraction expansion, and the second `R` is the polynomial
+remainder.  The remainder argument `zs` is equal to `z` by default but can be changed to any affine
+transformation of `z` instead. The final product `E` contains extra poles when they outnumber
 the roots by at least one (`p>q+1`).
 
 - `(q,p)` are the degree of the numerator and numerator, respectively.
@@ -15,14 +16,13 @@ the roots by at least one (`p>q+1`).
   `p` and `q` are both even and `q<p`).
 - `λ[1:p]` are the simple poles of `f`.
 - `a[1:m]` are the residues at the first `m≤p` poles.
-- `b[1:q-m+1]` are the coefficients of the Chebyshev polynomial expansion of the remainder term.
-- `T_i` is the Chebyshev polynomial of degree `i`.
+- `b[1:q-m+1]` are the coefficients of the polynomial expansion of the remainder term.
 
 Because of how `m` is constrained, exactly one of the following is true:
 
-1. The product equals 1 (when `m=p`).
-2. The second sum equals 0 (when `m=q+1`).
-3. The second sum equals a non-zero constant (when `m=q`).
+1. The product `E(z)` equals 1 (when `m=p`).
+2. The second sum `R(z)` equals 0 (when `m=q+1`).
+3. The second sum `R(z)` equals a non-zero constant (when `m=q`).
 
 This object cannot accomodate poles with multiplicity > 1, unfortunately. In practice, however,
 the effect of a multiple pole can be approximated as closely as needed by two nearby poles.
@@ -36,23 +36,23 @@ the effect of a multiple pole can be approximated as closely as needed by two ne
 # Arguments
 - `λ`: vector of poles
 - `a`: vector of residues (must be no longer than `λ`)
-- `b`: vector of coefficients of Chebyshev polynominals in the remainder, or a constant to represent
+- `b`: vector of coefficients of monominals in the remainder, or a constant to represent
   a constant remainder. If `b` is omitted, the remainder is assumed to be zero. If both `λ` and `a`
   are omitted, no partial fractions are assumed. They cannot all be omitted.
 
 # Keyword arguments
 - `polyMin::Number=-1`
-- `polyMax::Number=+1`: If the usual domain of the Chebyshev polynomials [-1,+1] is
+- `polyMax::Number=+1`: If the usual domain of the monomial [-1,+1] is
     not appropriate for this problem, these values can be changed so that `[polyMin,polyMax]` is affine
-    tranformed to [-1,+1] before computing the Chebyshev terms. These values affect _only_ the remainder terms,
+    tranformed to [-1,+1] before computing the monomial terms. These values affect _only_ the remainder terms,
     not the computation of the partial fraction terms. These values have no effect when
-    `length(b)` ≤ 1 (i.e., the remainder polynominal is a constant).
+    `length(b)` ≤ 1 (i.e., when the remainder polynominal is a constant).
 
 """
 struct PartialFracRational{T <: AbstractVector, U <: Number}
     λ::T  # poles
     a::T  # residues
-    b::T  # coefficients of the remainder polynomial, a Chebyshev series
+    b::T  # coefficients of the remainder polynomial
 
     q::Int  # degree of the numerator polynomial
     p::Int  # degree of the denominator polynomial
@@ -113,8 +113,8 @@ function pfrat_eval(z, pfr::PartialFracRational)
     zscaled = 2(zvec .- pfr.polyMin)/(pfr.polyMax-pfr.polyMin) .- 1
     # Make sure to end up with at least a Float, but complex if any of {z, pfr.a, or pfr.polyMin} are complex.
     T = promote_type(eltype(z), eltype(pfr.a), typeof(pfr.polyMin), Float64)
-    remainder = ChebyshevT(pfr.b)
-    f = evalpoly.(zscaled, remainder, false)
+    remainder = Polynomial(pfr.b)
+    f = remainder.(zscaled)
     for i=1:pfr.m
         f .+= pfr.a[i]./(zvec.-pfr.λ[i])
     end
@@ -150,7 +150,7 @@ function derivative(pfr::PartialFracRational, order::Int=1)
         for (ρ, λ) in zip(pfr.a, pfr.λ[1:pfr.m])
             f0 += ρ/(x-λ)^(order+1)
         end
-        scale*f0 + evalpoly(complex(x), derivative(ChebyshevT(pfr.b), order), false)
+        scale*f0 + evalpoly(complex(x), derivative(Polynomial(pfr.b), order))
     end
     der
 end
@@ -303,7 +303,7 @@ degree (`pfr.q` ≳ 5-10), the computation by coefficients can lead to poor cond
 and dubious results.
 """
 function roots_poly_method(pfr::PartialFracRational)
-    p = ChebyshevT(pfr.b)
+    p = Polynomial(pfr.b)
     for j=1:pfr.m
         p *= Polynomial([-pfr.λ[j],1])
     end
@@ -358,7 +358,7 @@ function roots_eigenvalue_method(pfr::PartialFracRational)
     end
 
     # q>m
-    β = chebyshev_roots(real(pfr.b))
+    β = roots(Polynomial(real(pfr.b)))
     if pfr.m==0
         return β
     end
@@ -376,85 +376,6 @@ function roots_eigenvalue_method(pfr::PartialFracRational)
     roots_pfrac1(-bc, vcat(pfr.λ, β))
 end
 
-
-"""
-    legendre_companion(c)
-
-Return the scaled companion matrix for a Legendre series with coefficients `c`.
-Copied from numpy/polynomial/legendre.py
-"""
-function legendre_companion(c::AbstractVector)
-    if length(c) < 2
-        throw(ErrorException("Series must have at least 2 terms (degree ≥ 1)."))
-    elseif length(c)==2
-        return [[-c[1]/c[2]]]
-    end
-    n = length(c)-1
-    scale = collect(1:2:2n-1).^-0.5
-    top = collect(1:n-1).*scale[1:n-1].*scale[2:end]
-    # mat = zeros(eltype(c), n, n)
-    mat = diagm(1=>top, 0=>zeros(eltype(c), n), -1=>top)
-    mat[:, end] .-= (c[1:end-1]/c[end]).*(scale/scale[end])*(n/(2n-1))
-    mat
-end
-
-"""
-    legendre_roots(c)
-
-Return the roots of a Legendre series with coefficients `c`.
-Copied from numpy/polynomial/legendre.py
-"""
-function legendre_roots(c::AbstractVector)
-    if length(c) < 2
-        return eltype(c)[]
-    elseif length(c)==2
-        return [-c[1]/c[2]]
-    end
-    # Rotated companion matrix reduces error, supposedly.
-    m = legendre_companion(c)[end:-1:1, end:-1:1]
-    eigvals(m)
-end
-
-
-"""
-    chebyshev_companion(c)
-
-Return the scaled companion matrix for a Chebyshev series with coefficients `c`.
-Copied from numpy/polynomial/chebyshev.py
-"""
-function chebyshev_companion(c::AbstractVector)
-    if length(c) < 2
-        throw(ErrorException("Series must have at least 2 terms (degree ≥ 1)."))
-    elseif length(c)==2
-        return [[-c[1]/c[2]]]
-    end
-    n = length(c)-1
-    scale = fill(sqrt(0.5), n)
-    scale[1] = 1.0
-
-    top = scale[1:n-1]*sqrt(0.5)
-    # mat = zeros(eltype(c), n, n)
-    mat = diagm(1=>top, 0=>zeros(eltype(c), n), -1=>top)
-    mat[:, end] .-= (c[1:end-1]/c[end]).*(scale/scale[end])*0.5
-    mat
-end
-
-"""
-    chebyshev_roots(c)
-
-Return the roots of a Chebyshev series with coefficients `c`.
-Copied from numpy/polynomial/chebyshev.py
-"""
-function chebyshev_roots(c::AbstractVector)
-    if length(c) < 2
-        return eltype(c)[]
-    elseif length(c)==2
-        return [-c[1]/c[2]]
-    end
-    # Rotated companion matrix reduces error, supposedly.
-    m = chebyshev_companion(c)[end:-1:1, end:-1:1]
-    eigvals(m)
-end
 
 """
     roots_pfrac0(w::AbstractVector, x::AbstractVector)
