@@ -183,9 +183,7 @@ function rpv2spectrum(zroots::AbstractVector, zpoles::AbstractVector, f0::Real=1
     if Bcols > 0
         coef = [1.0]
         for j=0:Bcols-1
-            # Create Chebyshev T_j function
-            Tj = ChebyshevT(coef)
-            B[:,j+1] = evalpoly.(cosroots, Tj, false)
+            B[:,j+1] = Polynomial(coef).(cosroots)
             coef = [0.0, coef...]
         end
     end
