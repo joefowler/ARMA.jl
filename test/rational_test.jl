@@ -51,8 +51,8 @@ using Test
     expect = 4 ./(z.-1) .+ 5 ./(z.-3) .+ 6 ./(z.-5)
     @test all(expect .≈ p(z))
 
-    p = PartialFracRational([1,3,5], [4,5,6], [1, 2, 3])
-    expect .+= 1.0 .+ 2z .+ 3*(2z.^2 .- 1)
+    p = PartialFracRational([1,3,5], [4,5,6], [1,2,3])
+    expect .+= 1.0 .+ 2z .+ 3*(z.^2)
     @test all(expect .≈ p(z))
 end
 
@@ -89,7 +89,7 @@ end
     p1 = PartialFracRational([-1, -2], [3, 2])
     p2 = PartialFracRational([-1, -2], [6, -12], [1])
     p3 = PartialFracRational([-1, -2], [-6, 24], [-6, 1])
-    p4 = PartialFracRational([-1, -2], [-6, 24], [-5, 1, 2])
+    p4 = PartialFracRational([-1, -2], [-6, 24], [-7, 1, 4])
     pfr = [p1, p2, p3, p4]
     answers = [[-1.6], [1, 2], [0, 1, 2], nothing]
     for (p, answer) in zip(pfr, answers)
@@ -143,7 +143,7 @@ end
     # The above suite of tests should be adequate, but why not keep these legacy tests in place, too?
     pole = ComplexF64[0.9999138564455727 + 1.311948345590019e-5im, 0.9999138564455727 - 1.311948345590047e-5im, 1.0000039082557004, 1.0001814813594927]
     residue = ComplexF64[-0.009648614144046466 - 0.015909481835920475im, -0.009648614144046797 + 0.01590948183592052im, 0.010087771996966484, -0.6895883924969154]
-    remainder = [52.25867169674221, 34.27540419493968, -0.8505261672687883, 4.1627407018820985, -9.675698272165642]
+    remainder = [43.43349959184536, 21.787182089293385, 75.70453384278755, 16.650962807528394, -77.40558617732513]
     pfr = PartialFracRational(pole, residue, remainder)
     r = roots(pfr)
 
@@ -154,7 +154,7 @@ end
 
     pole = ComplexF64[0.9996695605301016 + 7.87923300847346e-5im, 0.9996695605301016 - 7.87923300847346e-5im, 1.0000039439142947, 1.0001291013807305]
     residue = ComplexF64[-0.004387340627692793 + 0.006942158051290787im, -0.004387340627692793 - 0.006942158051290787im, 0.012338398116147082, -0.5283333626371072]
-    remainder = [79.58549226977715, 61.245019632968, -12.497377376570174]
+    remainder = [92.08286964634732, 61.245019632968, -24.99475475314035]
     pfr = PartialFracRational(pole, residue, remainder)
     r = roots(pfr)
 
