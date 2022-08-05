@@ -107,22 +107,22 @@ Base.:*(pfr::PartialFracRational, scale::Number) = PartialFracRational(pfr.λ, p
 Evaluate the rational function `pfr` at `z`, which may be a number or an AbstractArray.
 Returns as number or array of the same form and shape as `z` (but promoted to floating point, possibly complex).
 """
-function pfrat_eval(z, pfr::PartialFracRational)
-    arg_isscalar = size(z) == ()
-    zvec = arg_isscalar ? [z] : vec(z)
-    zscaled = 2(zvec .- pfr.polyMin)/(pfr.polyMax-pfr.polyMin) .- 1
+function pfrat_eval(z::AbstractArray, pfr::PartialFracRational)
     # Make sure to end up with at least a Float, but complex if any of {z, pfr.a, or pfr.polyMin} are complex.
     T = promote_type(eltype(z), eltype(pfr.a), typeof(pfr.polyMin), Float64)
+    z = convert(Vector{T}, z)
     remainder = Polynomial(pfr.b)
+    zscaled = 2(z .- pfr.polyMin)/(pfr.polyMax-pfr.polyMin) .- 1
     f = remainder.(zscaled)
     for i=1:pfr.m
-        f .+= pfr.a[i]./(zvec.-pfr.λ[i])
+        f .+= pfr.a[i]./(z.-pfr.λ[i])
     end
     for i=1+pfr.m:pfr.p
-        f ./= (zvec.-pfr.λ[i])
+        f ./= (z.-pfr.λ[i])
     end
-    f = arg_isscalar ? f[1] : reshape(f, size(z))
+    f
 end
+pfrat_eval(z::Number, pfr::PartialFracRational) = pfrat_eval([z], pfr)[1]
 
 """
     derivative(pfr::PartialFracRational, order::Int=1)
