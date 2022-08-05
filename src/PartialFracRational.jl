@@ -3,12 +3,11 @@
 
 Represents an order `(q,p)` rational function `f` in partial fraction form. That is, as
 
-    f(z) = [Σ i=1:m a[i]/(z-λ[i]) + Σ j=0:(q-m) b[i]*zs^j] * [ ∏ i=m+1:p 1/(z-λ[i])]
+    f(z) = [Σ i=1:m a[i]/(z-λ[i]) + Σ j=0:(q-m) b[i]*z^j] * [ ∏ i=m+1:p 1/(z-λ[i])]
     f(z) = [P(z) + R(z)]*E(z)
 
 where the first sum `P` is the partial fraction expansion, and the second `R` is the polynomial
-remainder.  The remainder argument `zs` is equal to `z` by default but can be changed to any affine
-transformation of `z` instead. The final product `E` contains extra poles when they outnumber
+remainder.  The final product `E` contains extra poles when they outnumber
 the roots by at least one (`p>q+1`).
 
 - `(q,p)` are the degree of the numerator and numerator, respectively.
@@ -20,7 +19,7 @@ the roots by at least one (`p>q+1`).
 
 Because of how `m` is constrained, exactly one of the following is true:
 
-1. The product `E(z)` equals 1 (when `m=p`).
+1. The product `E(z)` equals 1 (happens when `m=p`).
 2. The second sum `R(z)` equals 0 (when `m=q+1`).
 3. The second sum `R(z)` equals a non-zero constant (when `m=q`).
 
@@ -29,9 +28,9 @@ the effect of a multiple pole can be approximated as closely as needed by two ne
 
 # Constructors
 
-    PartialFracRational(λ, a, b; <keyword arguments>)
-    PartialFracRational(λ, a; <keyword arguments>)
-    PartialFracRational(b; <keyword arguments>)
+    PartialFracRational(λ, a, b)
+    PartialFracRational(λ, a)
+    PartialFracRational(b)
 
 # Arguments
 - `λ`: vector of poles
@@ -39,17 +38,8 @@ the effect of a multiple pole can be approximated as closely as needed by two ne
 - `b`: vector of coefficients of monominals in the remainder, or a constant to represent
   a constant remainder. If `b` is omitted, the remainder is assumed to be zero. If both `λ` and `a`
   are omitted, no partial fractions are assumed. They cannot all be omitted.
-
-# Keyword arguments
-- `polyMin::Number=-1`
-- `polyMax::Number=+1`: If the usual domain of the monomial [-1,+1] is
-    not appropriate for this problem, these values can be changed so that `[polyMin,polyMax]` is affine
-    tranformed to [-1,+1] before computing the monomial terms. These values affect _only_ the remainder terms,
-    not the computation of the partial fraction terms. These values have no effect when
-    `length(b)` ≤ 1 (i.e., when the remainder polynominal is a constant).
-
 """
-struct PartialFracRational{T <: AbstractVector, U <: Number}
+struct PartialFracRational{T <: AbstractVector}
     λ::T  # poles
     a::T  # residues
     b::T  # coefficients of the remainder polynomial
@@ -57,30 +47,22 @@ struct PartialFracRational{T <: AbstractVector, U <: Number}
     q::Int  # degree of the numerator polynomial
     p::Int  # degree of the denominator polynomial
     m::Int  # number of residues, ≤p and ≤q+1
-    polyMin::U
-    polyMax::U
 end
 
 # Constructors
-PartialFracRational(b::AbstractVector{U}; polyMin::Number=-1,polyMax::Number=+1) where {U} =
-    PartialFracRational(Float64[], Float64[], b; polyMin, polyMax)
-PartialFracRational(b::Real; polyMin::Number=-1,polyMax::Number=+1) =
-    PartialFracRational(Float64[], Float64[], [b]; polyMin, polyMax)
+PartialFracRational(b::AbstractVector{U}) where {U} =
+    PartialFracRational(Float64[], Float64[], b)
+PartialFracRational(b::Real) = PartialFracRational(Float64[], Float64[], [b])
 
-PartialFracRational(λ::RCPRoots, a::AbstractVector{T}, b::AbstractVector{U}=[];
-    polyMin::Number=-1, polyMax::Number=+1) where {T, U} = PartialFracRational(λ.z, a, b; polyMin, polyMax)
-PartialFracRational(λ::RCPRoots, a::AbstractVector{T}, b::Number;
-    polyMin::Number=-1, polyMax::Number=+1) where {T} = PartialFracRational(λ.z, a, [b]; polyMin, polyMax)
-PartialFracRational(λ::AbstractVector{S}, a::AbstractVector{T}, b::Number;
-    polyMin::Number=-1, polyMax::Number=+1) where {S, T} = PartialFracRational(λ, a, [b]; polyMin, polyMax)
+PartialFracRational(λ::RCPRoots, a::AbstractVector{T}, b::AbstractVector{U}=[]) where {T, U} = PartialFracRational(λ.z, a, b)
+PartialFracRational(λ::RCPRoots, a::AbstractVector{T}, b::Number) where {T} = PartialFracRational(λ.z, a, [b])
+PartialFracRational(λ::AbstractVector{S}, a::AbstractVector{T}, b::Number) where {S, T} = PartialFracRational(λ, a, [b])
 
-function PartialFracRational(λ::AbstractVector{S}, a::AbstractVector{T}, b::AbstractVector{U}=[];
-    polyMin::Number=-1, polyMax::Number=+1) where {S, T, U}
+function PartialFracRational(λ::AbstractVector{S}, a::AbstractVector{T}, b::AbstractVector{U}=[]) where {S, T, U}
     if b == []
         b = eltype(a)[]
     end
     λ, a, b = promote(float(λ), float(a), float(b))
-    polyMin, polyMax = promote(polyMin, polyMax)
 
     p = length(λ)
     m = length(a)
@@ -91,12 +73,11 @@ function PartialFracRational(λ::AbstractVector{S}, a::AbstractVector{T}, b::Abs
     if m > q+1
         throw(DimensionMismatch("length(a) $(m) > length(a)+length(b)+1 $(q+1)"))
     end
-    @assert polyMax != polyMin
-    PartialFracRational(λ, a, b, q, p, m, polyMin, polyMax)
+    PartialFracRational(λ, a, b, q, p, m)
 end
 
 Base.:*(scale::Number, pfr::PartialFracRational) = Base.:*(pfr, scale)
-Base.:*(pfr::PartialFracRational, scale::Number) = PartialFracRational(pfr.λ, pfr.a*scale, pfr.b*scale; pfr.polyMin, pfr.polyMax)
+Base.:*(pfr::PartialFracRational, scale::Number) = PartialFracRational(pfr.λ, pfr.a*scale, pfr.b*scale)
 
 # An alias: calling a `PartialFracRational` is equivalent to calling `pfrat_eval` on it.
 (pfr::PartialFracRational)(z) = pfrat_eval(z, pfr)
@@ -108,12 +89,11 @@ Evaluate the rational function `pfr` at `z`, which may be a number or an Abstrac
 Returns as number or array of the same form and shape as `z` (but promoted to floating point, possibly complex).
 """
 function pfrat_eval(z::AbstractArray, pfr::PartialFracRational)
-    # Make sure to end up with at least a Float, but complex if any of {z, pfr.a, or pfr.polyMin} are complex.
-    T = promote_type(eltype(z), eltype(pfr.a), typeof(pfr.polyMin), Float64)
+    # Make sure to end up with at least a Float, but complex if any of {z, pfr.a} are complex.
+    T = promote_type(eltype(z), eltype(pfr.a), Float64)
     z = convert(Vector{T}, z)
     remainder = Polynomial(pfr.b)
-    zscaled = 2(z .- pfr.polyMin)/(pfr.polyMax-pfr.polyMin) .- 1
-    f = remainder.(zscaled)
+    f = remainder.(z)
     for i=1:pfr.m
         f .+= pfr.a[i]./(z.-pfr.λ[i])
     end
@@ -150,7 +130,7 @@ function derivative(pfr::PartialFracRational, order::Int=1)
         for (ρ, λ) in zip(pfr.a, pfr.λ[1:pfr.m])
             f0 += ρ/(x-λ)^(order+1)
         end
-        scale*f0 + evalpoly(complex(x), derivative(Polynomial(pfr.b), order))
+        real(scale*f0 + evalpoly(complex(x), derivative(Polynomial(pfr.b), order)))
     end
     der
 end

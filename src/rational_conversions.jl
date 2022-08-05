@@ -21,8 +21,9 @@ function PartialFracRational(rr::RealRational)
     if (n_residues%2 != 0) && λ.ncomplex > n_residues
         @assert length(λ)%2 == 1
         # that works b/c n_residues + n_remainder == length(λ), and the 2 terms can't both be odd.
-        # So push the last (real) pole into the front of the list.
-        λ = circshift(λ,1)
+        # Move the last (real) pole from the end of the list into the end of the residues' portion.
+        λ = λ.z
+        λ[n_residues:end] = circshift(λ[n_residues:end],1)
     end
     # TODO: are there ways to prioritize which ones get a residue and a partial-fraction, vs
     # which are simply "extra factors"? For now, we'll assume it makes no difference.

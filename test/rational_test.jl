@@ -3,7 +3,6 @@ using Polynomials
 using Test
 
 @testset "PartialFracRational" begin
-    @test_throws AssertionError p=PartialFracRational([1,2],[3,4]; polyMin=1, polyMax=1)
     @test_throws DimensionMismatch p=PartialFracRational([1,2],[3,4,5,6,7])
     @test_throws MethodError p=PartialFracRational()
 
@@ -39,11 +38,8 @@ using Test
     p1 = PartialFracRational(Float64[], Float64[], [13,4.0])
     p2 = PartialFracRational([13,4.0])
     f2(x) = 13.0+4x
-    p3 = PartialFracRational([13,4.0]; polyMin=2, polyMax=4)
-    f3(x) = 13.0+4(x-3)
     @test all(p1(z) .≈ p2(z))
     @test all(p2(z) .≈ f2.(z))
-    @test all(p3(z) .≈ f3.(z))
 
     # Check a simple case, without and with remainder polynomial
     p = PartialFracRational([1,3,5], [4,5,6])
@@ -125,7 +121,7 @@ end
                 m -= 1
             end
 
-            pfr = PartialFracRational(testpoles[1:p], testresidues[1:m],remainder[1:q-m+1])
+            pfr = PartialFracRational(testpoles[1:p], testresidues[1:m], remainder[1:q-m+1])
             @test pfr.p == p
             @test pfr.q == q
             @test pfr.m == m
