@@ -68,4 +68,75 @@ function RealRational(pfr::PartialFracRational)
 end
 
 # also need conversions between PFR and PPFR
-# then RR <--> PPFR follow as the obvious 2-step conversions with PFR as the intermediate.
+function PairedPartialFracRational(pfr::PartialFracRational)
+    unum = Float64[]
+    udenom = Float64[]
+
+    for i=1:2:pfr.m-1
+        # For now, assert that poles/residues are sorted into complex pairs first.
+        @assert isapprox(pfr.λ[i], conj(pfr.λ[i+1]))
+        @assert isapprox(pfr.a[i], conj(pfr.a[i+1]))
+        push!(unum, 2real(pfr.a[i]))
+        push!(unum, -2real(pfr.a[i]*pfr.λ[i+1]))
+        push!(udenom, 2real(pfr.λ[i]))
+        push!(udenom, abs2(pfr.λ[i]))
+    end
+    if pfr.m%2 == 1
+        push!(unum, real(pfr.a[pfr.m]))
+        push!(udenom, real(pfr.λ[pfr.m]))
+    end
+
+    extrapoles = RCPRoots(pfr.λ[1+pfr.m:end])
+    extrau = Float64[]
+    for i=1:2:length(extrapoles)-1
+        u1 = real(extrapoles[i]+extrapoles[i+1])
+        u0 = abs2(extrapoles[i])
+        append!(extrau, [u1,u0])
+    end
+    if length(extrapoles)%2 == 1
+        append!(extrau, real(extrapoles[end]))
+    end
+    @assert length(unum) == pfr.m
+    @assert length(pfr.b) == pfr.q-pfr.m+1
+    @assert length(udenom) == pfr.m
+    @assert length(extrau) == pfr.p-pfr.m
+    u = vcat(unum, real(pfr.b), udenom, extrau)
+    PairedPartialFracRational(u, pfr.q, pfr.p, pfr.m)
+end
+
+function PartialFracRational(ppfr::PairedPartialFracRational)
+    unum = ppfr.u[1:ppfr.m]
+    remainder = ppfr.u[1+ppfr.m:1+ppfr.q]
+    udenom = ppfr.u[2+ppfr.q:end]
+    @assert length(udenom) == ppfr.p
+
+    a = Complex{Float64}[]
+    λ = Complex{Float64}[]
+
+    for i=1:2:ppfr.m-1
+        pmterm = .5*sqrt(udenom[i]^2-4Complex(udenom[i+1]))
+        push!(λ, udenom[i]*.5+pmterm)
+        push!(λ, udenom[i]*.5-pmterm)
+        avalues = [1 1; -λ[i+1] -λ[i]] \ unum[i:i+1]
+        append!(a, avalues)
+    end
+    if ppfr.m%2 == 1
+        push!(λ, udenom[ppfr.m])
+    end
+    for i=1+ppfr.m:2:ppfr.p-1
+        pmterm = .5*sqrt(udenom[i]^2-4Complex(udenom[i+1]))
+        push!(λ, udenom[i]*.5+pmterm)
+        push!(λ, udenom[i]*.5-pmterm)
+    end
+    if (ppfr.p-ppfr.m)%2 == 1
+        push!(λ, udenom[end])
+    end
+
+    @assert length(a) == ppfr.m
+    @assert length(λ) == ppfr.p
+    PartialFracRational(λ, a, remainder)
+end
+
+#  RR <--> PPFR follow as the obvious 2-step conversions with PFR as the intermediate.
+PairedPartialFracRational(rr::RealRational) = PairedPartialFracRational(PartialFracRational(rr))
+RealRational(ppfr::PairedPartialFracRational) = RealRational(PartialFracRational(ppfr))

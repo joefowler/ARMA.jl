@@ -90,4 +90,5 @@ function rrat_eval(z::AbstractVector, rr::RealRational)
 end
 
 include("PartialFracRational.jl")
+include("PairedPartialFracRational.jl")
 include("rational_conversions.jl")

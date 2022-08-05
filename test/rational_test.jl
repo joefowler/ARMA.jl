@@ -98,6 +98,7 @@ end
         end
     end
 
+    # Return the smallest pairwise absolute distance between 2 elements.
     function mindist(r::Vector)
         md = Inf
         for i=1:length(r)
