@@ -16,11 +16,16 @@ function PartialFracRational(rr::RealRational)
     end
 
     λ = rr.zpoles
-    # TODO: add code to re-sort λ so no complex pairs are broken.
-    # Until then, use this assertion to verify that we aren't hitting that special case.
-    @assert (n_residues%2 == 0) || λ.ncomplex ≤ n_residues
+    # Re-sort λ so no complex pairs are broken when we split into the [1,n_residues] + remainder.
+    # Only would happen if n_residues is odd, AND there are more than n_residues complex poles.
+    if (n_residues%2 != 0) && λ.ncomplex > n_residues
+        @assert length(λ)%2 == 1
+        # that works b/c n_residues + n_remainder == length(λ), and the 2 terms can't both be odd.
+        # So push the last (real) pole into the front of the list.
+        λ = circshift(λ,1)
+    end
     # TODO: are there ways to prioritize which ones get a residue and a partial-fraction, vs
-    # which are simply "extra factors"?
+    # which are simply "extra factors"? For now, we'll assume it makes no difference.
 
     residues = zeros(Complex{Float64}, n_residues)
     dϕdz = derivative(rr.ϕ)

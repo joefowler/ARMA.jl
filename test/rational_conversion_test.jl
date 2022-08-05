@@ -23,4 +23,15 @@ using ARMA: PartialFracRational, RealRational
         # pfr2 = PartialFracRational(ppfr)
         # rr3 = RealRational(pfr2)
     end
+
+    # Test a case where conversion to PFR requires re-sorting poles.
+    # Consider a (q,p)=(2,7) rational. It will put 3 poles into the partial fraction, and 4
+    # will be "extra factors".
+    λ = [1+1im, 1-1im, 1.2+1im, 1.2-1im, 2+.5im, 2-.5im, -3]
+    r = [3, 4.0]
+    f0 = 4.0
+
+    rr1 = RealRational(r, λ, f0)
+    pfr1 = PartialFracRational(rr1)
+    rr2 = RealRational(pfr1)
 end
