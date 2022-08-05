@@ -112,9 +112,6 @@ end
     for model in keys(thetas)
         θcoef = float(thetas[model])
         ϕcoef = float(phis[model])
-        # @show model
-        # @show θcoef
-        # @show ϕcoef
         if ϕcoef[1] != 1.0
             θcoef /= ϕcoef[1]
             ϕcoef /= ϕcoef[1]
@@ -341,4 +338,5 @@ end
 include("hdf5test.jl")
 include("rcproots_test.jl")
 include("rational_test.jl")
+include("rational_conversion_test.jl")
 end

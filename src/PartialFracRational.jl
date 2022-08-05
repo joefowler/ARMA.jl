@@ -245,8 +245,6 @@ function improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector;
     numer(x) = pfr(x)*denom(x)
     r(x) = sum([1.0/(x-ri) for ri in pfr.λ])
     r1(x) = -sum([1.0/(x-ri)^2 for ri in pfr.λ])
-    # @show rough
-    # @show abs.(pfr(rough))
 
     for i=1:length(rough)
         n = pfr.q-length(knownroots)

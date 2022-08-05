@@ -31,8 +31,6 @@ function RCPRoots(z::AbstractVector{T}; angletol=1e-12, reltol=1e-12, abstol=1e-
     # Values with complex phase w/i angle `angletol` of 0 or ±π are considered real.
     ncomplex = n-sum(isreal)
     if ncomplex%2 != 0
-        # @show z[isreal]
-        # @show z[.~isreal]
         throw(DomainError("RCPRoots called with an odd number of non-real values."))
     end
     if ncomplex == 0

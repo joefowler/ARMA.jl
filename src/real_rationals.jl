@@ -65,8 +65,8 @@ function RealRational(θ::AbstractPolynomial, ϕ::AbstractPolynomial)
 end
 
 function RealRational(zroots::AbstractVector,zpoles::AbstractVector,f0::Real)
-    θ = fromroots(zroots)
-    ϕ = fromroots(zpoles)
+    θ = real(fromroots(zroots))
+    ϕ = real(fromroots(zpoles))
     θ = θ.*(f0/θ[0])
     ϕ = ϕ./ϕ[0]
     RealRational(θ,ϕ,RCPRoots(zroots),RCPRoots(zpoles))
@@ -90,3 +90,4 @@ function rrat_eval(z::AbstractVector, rr::RealRational)
 end
 
 include("PartialFracRational.jl")
+include("rational_conversions.jl")
