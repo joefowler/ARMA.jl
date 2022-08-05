@@ -293,7 +293,7 @@ function roots_poly_method(pfr::PartialFracRational)
         end
         p += p1
     end
-    roots(p)
+    roots(real(p))
 end
 
 """
