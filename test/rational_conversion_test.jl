@@ -8,21 +8,19 @@ using ARMA: PartialFracRational, RealRational
         λ = allpoles[1:p]
         f0 = 4.0
 
-        rr = RealRational(r, λ, f0)
-        @show q, p, rr
-        pfr = PartialFracRational(rr)
-        rr2 = RealRational(pfr)
+        rr1 = RealRational(r, λ, f0)
+        pfr1 = PartialFracRational(rr1)
+        rr2 = RealRational(pfr1)
         for x in r
-            @test min(abs.(x.-rr2.zroots)) < 1e-8
+            @test minimum(abs.(x.-rr2.zroots)) < 1e-8
         end
         for x in λ
-            @test min(abs.(x.-rr2.zpoles)) < 1e-8
+            @test minimum(abs.(x.-rr2.zpoles)) < 1e-8
         end
-        @test maximum(rr.ϕ-rr2.ϕ) < 1e-8
-        @test minimum(rr.ϕ-rr2.ϕ) > -1e-8
+        @test all(isapprox.(rr1.ϕ, rr2.ϕ; atol=1e-10))
 
-        # ppfr = PairedPartialFracRational(pfr)
+        # ppfr = PairedPartialFracRational(pfr1)
         # pfr2 = PartialFracRational(ppfr)
-        # rr2 = RealRational(pfr2)
+        # rr3 = RealRational(pfr2)
     end
 end
