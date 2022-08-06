@@ -130,7 +130,7 @@ function derivative(pfr::PartialFracRational, order::Int=1)
         for (ρ, λ) in zip(pfr.a, pfr.λ[1:pfr.m])
             f0 += ρ/(x-λ)^(order+1)
         end
-        real(scale*f0 + evalpoly(complex(x), derivative(Polynomial(pfr.b), order)))
+        scale*f0 + evalpoly(complex(x), derivative(Polynomial(pfr.b), order))
     end
     der
 end
@@ -208,8 +208,10 @@ At most `nsteps` will be taken, but iteration will stop early if the step
 is close to the machine precision.
 """
 function improve_roots_laguerre(pfr::PartialFracRational, rough::AbstractVector; nsteps=75)
+
     # A PFR with p>m will be hard to differentiate analytically. Thus,
-    # change it to order (q,m) (where m=q+1 or m=q) by dropping those final (p-m) factors before differentiating.
+    # change it to order (q,m) (where m=q+1 or m=q) by dropping those final (p-m) factors before
+    # differentiating. They don't affect the roots.
     if pfr.p > pfr.m
         pfr = PartialFracRational(pfr.λ[1:pfr.m], pfr.a, pfr.b)
     end
