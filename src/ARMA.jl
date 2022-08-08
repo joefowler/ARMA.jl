@@ -35,7 +35,7 @@ export
 
 include("real_rationals.jl")
 include("model_fitting_autocorr.jl")
-# include("model_fitting_psd.jl")
+include("model_fitting_psd.jl")
 
 
 """
