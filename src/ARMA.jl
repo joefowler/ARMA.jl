@@ -26,13 +26,16 @@ export
     PartialFracRational,
     BarycentricRational
 
-# ARMA.jl includes the basic ARMA models and their use
-# model_selection.jl includes tools for choosing a model (p,q) order
-#   and for fitting the best model of that order.
+# * ARMA.jl includes the basic ARMA models and their use
+# * real_rationals.jl includes structures for expressing rational functions with real coefficients.
+# * model_fitting_autocorr.jl includes tools for choosing a model (p,q) order
+#   and for fitting the best model of that order to the autocorrelation function.
+# * model_fitting_psd.jl includes tools for fitting the best model of a given order to a measured
+#   power spectral density.
 
-include("model_selection.jl")
-# include("psd_model_fitting.jl")
 include("real_rationals.jl")
+include("model_fitting_autocorr.jl")
+# include("model_fitting_psd.jl")
 
 
 """

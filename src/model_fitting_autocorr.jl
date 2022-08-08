@@ -1,5 +1,5 @@
 #
-# Functions to find the appropriate ARMA model from data.
+# Functions to find the appropriate ARMA model from autocorrelation data.
 #
 
 using FFTW
