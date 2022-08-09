@@ -32,6 +32,8 @@ function innovations_estimate(autocorr::AbstractVector, p::Integer, q=-1)
     if q < 0
         q = p
     end
+    @assert p ≥ 0
+    @assert q ≥ 0
 
     n = length(autocorr)
     v = OffsetArray(zeros(Float64, n), -1) # indices 0:n-1
@@ -59,16 +61,20 @@ function innovations_estimate(autocorr::AbstractVector, p::Integer, q=-1)
     # Now treat the last estimate as the leading part of an MA(∞) model with coefficients ψ.
     # Convert that model to the best mixed model ARMA(p,q). Again implied ψ[0]=1.
     ψ = θ[end,:]
-    Mrow1 = zeros(Float64, p)
-    if q≥p
-        Mrow1[:] = ψ[q:-1:q+1-p]
+    if p > 0
+        Mrow1 = zeros(Float64, p)
+        if q≥p
+            Mrow1[:] = ψ[q:-1:q+1-p]
+        else
+            Mrow1[1:q] = ψ[q:-1:1]
+            Mrow1[q+1] = 1.0  # the implied ψ[0]=1.
+        end
+        M = Toeplitz(ψ[q:q+p-1], Mrow1)
+        ϕ = M\ψ[q+1:q+p]  # Eq 8.4.4
+        pϕ = Polynomial(vcat(1, -ϕ))  # Our convention uses opposite sign from Brockwell & Davis.
     else
-        Mrow1[1:q] = ψ[q:-1:1]
-        Mrow1[q+1] = 1.0  # the implied ψ[0]=1.
+        pϕ = Polynomial([1])
     end
-    M = Toeplitz(ψ[q:q+p-1], Mrow1)
-    ϕ = M\ψ[q+1:q+p]  # Eq 8.4.4
-    pϕ = Polynomial(vcat(1, -ϕ))  # Our convention uses opposite sign from Brockwell & Davis.
 
     theta = ψ[1:q]  # This plus following loop perform Eq 8.4.5
     for j=1:q
