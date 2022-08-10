@@ -73,13 +73,13 @@ function PairedPartialFracRational(pfr::PartialFracRational)
     udenom = Float64[]
 
     for i=1:2:pfr.m-1
-        # For now, assert that poles/residues are sorted into complex pairs first.
-        @assert isapprox(pfr.λ[i], conj(pfr.λ[i+1]))
-        @assert isapprox(pfr.a[i], conj(pfr.a[i+1]))
-        push!(unum, 2real(pfr.a[i]))
-        push!(unum, -2real(pfr.a[i]*pfr.λ[i+1]))
-        push!(udenom, 2real(pfr.λ[i]))
-        push!(udenom, abs2(pfr.λ[i]))
+        # For now, assert that poles/residues are sorted into complex pairs first, or are real.
+        @assert isapprox(sin(angle(pfr.λ[i]+pfr.λ[i+1])), 0; atol=1e-12)
+        @assert isapprox(sin(angle(pfr.a[i]+pfr.a[i+1])), 0; atol=1e-12)
+        push!(unum, real(sum(pfr.a[i:i+1])))
+        push!(unum, -real(pfr.a[i]*pfr.λ[i+1]+pfr.a[i+1]*pfr.λ[i]))
+        push!(udenom, real(sum(pfr.λ[i:i+1])))
+        push!(udenom, real(prod(pfr.λ[i:i+1])))
     end
     if pfr.m%2 == 1
         push!(unum, real(pfr.a[pfr.m]))
@@ -89,8 +89,8 @@ function PairedPartialFracRational(pfr::PartialFracRational)
     extrapoles = RCPRoots(pfr.λ[1+pfr.m:end])
     extrau = Float64[]
     for i=1:2:length(extrapoles)-1
-        u1 = real(extrapoles[i]+extrapoles[i+1])
-        u0 = abs2(extrapoles[i])
+        u1 = real(sum(extrapoles[i:i+1]))
+        u0 = real(prod(extrapoles[i:i+1]))
         append!(extrau, [u1,u0])
     end
     if length(extrapoles)%2 == 1

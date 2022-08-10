@@ -58,7 +58,7 @@ function RealRational(θ::AbstractPolynomial, ϕ::AbstractPolynomial)
     zroots = RCPRoots(roots(θ))
     zpoles = RCPRoots(roots(ϕ))
     # Normalize the input coefficient vectors
-    scale = ϕ.coeffs[0]
+    scale = ϕ[0]
     θ = θ ./ scale
     ϕ = ϕ ./ scale
     RealRational(θ,ϕ,zroots,zpoles)
