@@ -102,7 +102,7 @@ end
 function ARMA_objective(C::Vector, grad::Vector, buffer::ExpFitBuffer)
     p = length(C)
     B = C2B(C)
-    A = findA(buffer.t, buffer.r, B, w=buffer.w)
+    A = find_exp_amplitudes(buffer.r, B, buffer.w; t=buffer.t)
     fmodel = exponential_model(buffer.t, A, B)
 
     if length(grad) > 0

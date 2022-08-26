@@ -84,19 +84,18 @@ Find the `nexp` "main exponentials" in the time stream `data`.
 
 Specifically, follow the prescription of P. De Groen & B. De Moor (1987).
 "The fit of a sum of exponentials to noisy data." J. Computational & Applied
-Mathematics, vol. 20, pages 175–187.
+Mathematics, vol. 20, pages 175–187. Specifically, this is equation (3.3).
 
 We build a Hankel matrix H whose columns are contiguous segments of the time stream.
-Perform a singular value decomposition to find the rank-`nexp` decomposition of H,
-from which we can construct the square matrix A (of size `nexp`) which is known
-to be similar to the "system matrix" (i.e., a time-step-advance matrix). The
-latter has eigenvalues equal to the exponentials comprising the time stream, so
-A (by similarity) has the same eigenvalues.
+Perform a singular value decomposition to find the rank-`nexp` decomposition of all
+but the bottom row of H. Combining this decomposition and all the rows of H but the
+top, we can construct the square matrix M (of size `nexp`). M is constructed
+to be similar to the "system matrix" (i.e., a time-step-advance matrix) A. The
+latter has diagonals equal to the exponentials comprising the time stream. By similarity,
+A and M have the same eigenvalues. The desired exponentials (the diagonals of A)
+can be computed as the eigenvalues of any matrix similar to A, such as M.
 
-That's the best explanation I have. It might be more honest to say that we
-find the exponentials by magic.
-
-Note that the current implementation does not construct the exact SVD of H,
+The current implementation does not construct the exact SVD of H,
 but rather uses a randomized matrix technique to compute an *approximate* SVD
 very efficiently, containing only a specified number of leading singular vectors.
 
@@ -119,22 +118,23 @@ function main_exponentials(data::Vector, nexp::Int; minexp=nothing)
     end
 
     ncol = min(40 + 5nexp, div(N, 2))
-    H = fill(0.0, N+1-ncol, ncol)
+    H = Array{Float64}(undef, N+1-ncol, ncol)
     for c=1:ncol
         H[:,c] = data[c:c+N-ncol]
     end
     U,s,V = find_svd_randomly(H[1:end-1,:], nexp)
-    W = Diagonal(s .^ (-0.5))
-    A = W*U'*H[2:end,:]*V*W
 
     # By default, return the exponential set of size nexp only.
     if minexp == nothing
+        W = Diagonal(s[1:nexp] .^ (-0.5))
+        A = W*U[:,1:nexp]'*H[2:end,:]*V[:,1:nexp]*W
         return sortbases!(eigvals(A))
     end
 
     # The minexp has been set, so return all sizes minexp...nexp, inclusive.
     exps = []
     for p = minexp:nexp
+        W = Diagonal(s .^ (-0.5))
         A = W[1:p, 1:p]*U[:,1:p]'*H[2:end,:]*V[:,1:p]*W[1:p,1:p]
         push!(exps, sortbases!(eigvals(A)))
     end
@@ -240,51 +240,75 @@ end
 
 
 """
-    findA(t, r, B, [w=weights])
+    find_exp_amplitudes(y, bases, [weights]; t=nothing)
 
 Compute the amplitudes `A` for a linear model of the form
 
-r_t ≈ f(t) = Sum_{i=1...p} A[i] B[i]^t
+`y_t ≈ f(t) = ∑_{i=1...p} A[i] bases[i]^t`
 
-by minimizing
+(where `p` is the length of `bases`). By default, `t` is not given, and we assume even
+steps of unit size starting from 0 (i.e., `t=0:length(y)-1`). When `t` is given, it can
+allow uneven time steps in the data values `y`, or steps starting at values other than
+zero, or steps of non-unit size.
 
-Sum_t [w_t (r_t - f(t))^2].
+Amplitudes are estimated by minimizing the (weighted) sum of squares
 
-This is a linear problem, given `B`. If `w` is not given, then equal weights on
+`∑_i [weights[i] (y[i] - f(t[i]))^2]`.
+
+This is a linear problem in the `A`. If `weights` is not given, then equal weights on
 all data are assumed.
 
-Returns the array of amplitudes `A`.
+Returns the array of amplitudes `A`. `A` will be complex if `y` or `bases` are. For real
+data `y`, the values in `A` will be forced to be strictly real for each real base, and to
+be complex-conjugate pairs for bases that are complex-conjugate pairs.
 """
-function findA(t::AbstractVector, r::Vector, B::Vector{T}; w=nothing) where {T<:Number}
-    @assert length(t) == length(r)
-    if w==nothing
-        w = ones(r)
+function find_exp_amplitudes(y::AbstractVector, bases::AbstractVector{T}, weights=nothing;
+                             t=nothing) where {T<:Number}
+    if t == nothing
+        t = 0:length(y)-1
+    else
+        @assert length(t) == length(y)
     end
-    wr = w.*r
-    p = length(B)
-    M = fill(zero(T), p, p)
-    D = fill(zero(T), p)
-    for i=1:p
-        for j=1:i
-            M[j,i] = M[i,j] = sum(w .* (B[i]*B[j]).^t)
-        end
-        D[i] = sum(wr .* B[i].^t)
+    if weights == nothing
+        W = I
+    else
+        W = Diagonal(weights)
     end
+    B = hcat([b.^t for b in bases]...)
+    A = (B'*W*B)\(B'*W*y)
 
-    # A = M\D is theoretically correct, but don't do this: can be ill-conditioned in certain cases
-    A = pinv(M) * D
+    # When data are real, make sure that real exponents have real amplitudes, and complex
+    # conjugate pair bases get conjugate-pair amplitudes.
+    if isreal(y) && !(T <: Real)
+        for (i,b) = enumerate(bases)
+            if isreal(b)
+                A[i] = real(A[i])
+            elseif imag(b) > 0
+                j = findfirst(x->x==conj(b), bases)
+                if j !== nothing
+                    A[i] = 0.5*(A[i]+conj(A[j]))
+                    A[j] = conj(A[i])
+                end
+            end
+        end
+    end
+    A
 end
 
 
 
 """
-    exponential_model(t, A, B)`
+    exponential_model(t::AbstractVector, A, B)
+    exponential_model(n::Integer, A, B)
 
 Computes and returns the sum-of-exponentials model with amplitudes `A` and
-exponential bases `B` at time steps `t`.
+exponential bases `B` at time steps `t` for vector-valued `t`. If the first argument is an
+integer `n`, model assumes the time steps are `0:n-1`
 """
-function exponential_model(t::AbstractVector, A::Vector, B::Vector)
-    r = fill(0.0, length(t))
+exponential_model(n::Integer, A::AbstractVector, B::AbstractVector)=exponential_model(0:n-1, A, B)
+function exponential_model(t::AbstractVector, A::AbstractVector, B::AbstractVector)
+    @assert length(A)==length(B)
+    r = zeros(Float64, length(t))
     for i=1:length(A)
         r .+= real(A[i]* B[i].^t)
     end
@@ -379,8 +403,7 @@ function fit_exponentials(data::Vector; pmin::Int=0, pmax::Int=6,
     bestB = C2B(best_fit)
     squashgrowingexp!(bestB, 0.25/N)
 
-    t = 0:(length(data)-1)
-    bestA = findA(t, data, bestB, w=w)
+    bestA = find_exp_amplitudes(data, bestB, w)
     bestA, bestB
 end
 
