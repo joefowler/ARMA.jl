@@ -99,7 +99,7 @@ function ppfrac_eval_jacobian(z::AbstractVector, ppfr::PairedPartialFracRational
     if ppfr.m%2 == 1
         f .+= unum[ppfr.m] ./ (z .- udenom[ppfr.m])
         J[:,ppfr.m] .= 1.0 ./(z.-udenom[ppfr.m])
-        J[:,ppfr.m+2+ppfr.q] .= unum[ppfr.m] ./ (z .- udenom[ppfr.m]).^2
+        J[:,ppfr.m+1+ppfr.q] .= unum[ppfr.m] ./ (z .- udenom[ppfr.m]).^2
     end
 
     if ppfr.p > ppfr.m
