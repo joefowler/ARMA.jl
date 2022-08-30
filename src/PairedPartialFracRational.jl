@@ -79,8 +79,8 @@ function ppfrac_eval_jacobian(z::AbstractVector, ppfr::PairedPartialFracRational
     remainder = Polynomial(ppfr.u[ppfr.m+1:ppfr.q+1])
     f = remainder.(z)
     J = Array{T}(undef, length(z), length(ppfr.u))
-    for i=ppfr.m+1:ppfr.q+1
-        J[:,i] .= z.^(i-ppfr.m+1)
+    for i=0:ppfr.q-ppfr.m
+        J[:,i+1+ppfr.m] .= z.^i
     end
 
     unum = ppfr.u[1:ppfr.m]

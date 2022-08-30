@@ -70,7 +70,7 @@ end
     end
 
     z = LinRange(-1, 11, 50)
-    v10 = 1:10
+    v10 = float(1:10)
     u1,u2,u3,u4,v1,v2,v3,v4,v5,v6 = v10
     p1 = PairedPartialFracRational(v10, 3, 6, 3)
     E = (z.^2 .-v4*z .+v5).*(z.-v6)
@@ -99,6 +99,24 @@ end
     @test all(isapprox.(f, answer, rtol=1e-9))
     @test all(isapprox.(J[:,10], f./E))
 
+    # Test Jacobian crudely with finite differencing.
+    finite_diff_step = 1e-6
+    for (q,p,m) in ((3,6,3),(4,5,3), (4,5,4))
+        p1 = PairedPartialFracRational(v10, q, p, m)
+        _,J = ARMA.ppfrac_eval_jacobian(z, p1)
+        for i=1:10
+            vplus=collect(v10)
+            vminus=collect(v10)
+            vplus[i] += finite_diff_step
+            vminus[i] -= finite_diff_step
+            p2 = PairedPartialFracRational(vplus, q, p, m)
+            p3 = PairedPartialFracRational(vminus, q, p, m)
+            f2 = p2(z)
+            f3 = p3(z)
+            Japprox = (f2-f3)/2finite_diff_step
+            @test all(isapprox.(J[:,i], Japprox; rtol=1e-6))
+        end
+    end
 end
 
 @testset "partial_frac" begin
