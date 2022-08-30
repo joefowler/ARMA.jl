@@ -1,4 +1,4 @@
-using ARMA: PartialFracRational, partial_frac_decomp, roots_pfrac
+using ARMA: PartialFracRational, PairedPartialFracRational, partial_frac_decomp, roots_pfrac
 using Polynomials
 using Test
 
@@ -50,6 +50,55 @@ using Test
     p = PartialFracRational([1,3,5], [4,5,6], [1,2,3])
     expect .+= 1.0 .+ 2z .+ 3*(z.^2)
     @test all(expect .≈ p(z))
+end
+
+@testset "PairedPartialFracRational" begin
+    vals9 = LinRange(1, 9, 9)
+    # Test that constructor checks q,p,m parameters
+    @test_throws AssertionError PairedPartialFracRational(vals9, -1, 10, 0)
+    @test_throws AssertionError PairedPartialFracRational(vals9, 4, 5, 0)
+    for q=3:8
+        for p=3:8
+            for m=3:8
+                if q+p+1 != length(vals9) || m > p || m > q+1
+                    @test_throws AssertionError PairedPartialFracRational(vals9,q,p,m)
+                else
+                    p1 = PairedPartialFracRational(vals9,q,p,m)
+                end
+            end
+        end
+    end
+
+    z = LinRange(-1, 11, 50)
+    v10 = 1:10
+    u1,u2,u3,u4,v1,v2,v3,v4,v5,v6 = v10
+    p1 = PairedPartialFracRational(v10, 3, 6, 3)
+    E = (z.^2 .-v4*z .+v5).*(z.-v6)
+    S = (u1*z.+u2)./(z.^2 .-v1*z.+v2) .+ u3./(z.-v3) .+ u4
+    answer = S./E
+    @test all(isapprox.(p1(z), answer, rtol=1e-9))
+    f,J = ARMA.ppfrac_eval_jacobian(z, p1)
+    @test all(isapprox.(f, answer, rtol=1e-9))
+
+    u1,u2,u3,u4,u5,v1,v2,v3,v4,v5 = v10
+    p1 = PairedPartialFracRational(v10, 4, 5, 3)
+    E = (z.^2 .-v4*z .+v5)
+    S = (u1*z.+u2)./(z.^2 .-v1*z.+v2) .+ u3./(z.-v3) .+ u4 .+ u5.*z
+    answer = S./E
+    @test all(isapprox.(p1(z), answer, rtol=1e-9))
+    f,J = ARMA.ppfrac_eval_jacobian(z, p1)
+    @test all(isapprox.(f, answer, rtol=1e-9))
+
+    u1,u2,u3,u4,u5,v1,v2,v3,v4,v5 = v10
+    p1 = PairedPartialFracRational(v10, 4, 5, 4)
+    E = (z .-v5)
+    S = (u1*z.+u2)./(z.^2 .-v1*z.+v2) .+ (u3*z.+u4)./(z.^2 .-v3*z.+v4) .+ u5
+    answer = S./E
+    @test all(isapprox.(p1(z), answer, rtol=1e-9))
+    f,J = ARMA.ppfrac_eval_jacobian(z, p1)
+    @test all(isapprox.(f, answer, rtol=1e-9))
+    @test all(isapprox.(J[:,10], f./E))
+
 end
 
 @testset "partial_frac" begin
