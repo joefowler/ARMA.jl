@@ -12,11 +12,14 @@ using ARMA: RealRational, PartialFracRational, PairedPartialFracRational
     for (allroots, allpoles) in zip((allroots1, allroots2,allpoles2), (allpoles1, allpoles2,allroots2))
         # Test both with and without remainder polynomial, and with and without extra poles.
         # (2,6), (3,7), (3,5) have extra poles (4, 4, and 1, respectively).
-        # (2,6) and (4,4) have constant remainder;
+        # (2,6), (4,4), and (3,3) have constant remainder;
         # (3,7), (3,5) and (3,4) have zero remainder; (6,4) has quadratic remainder
-        for (q,p) in ((2,6), (3,6), (3,7), (3,4), (4,4), (6,4))
+        for (q,p) in ((2,6), (3,6), (3,7), (3,4), (4,4), (6,4), (3,3))
             r = allroots[1:q]
             λ = allpoles[1:p]
+            if p%2 == 1
+                λ[end] = real(λ[end])
+            end
             f0 = 4.0
 
             rr1 = RealRational(r, λ, f0)

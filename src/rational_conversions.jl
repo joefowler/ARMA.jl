@@ -122,6 +122,7 @@ function PartialFracRational(ppfr::PairedPartialFracRational)
     end
     if ppfr.m%2 == 1
         push!(λ, udenom[ppfr.m])
+        push!(a, unum[ppfr.m])
     end
     for i=1+ppfr.m:2:ppfr.p-1
         pmterm = .5*sqrt(udenom[i]^2-4Complex(udenom[i+1]))
