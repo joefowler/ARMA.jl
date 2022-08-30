@@ -134,5 +134,5 @@ function vectorfit(z::AbstractVector, f::AbstractVector, wt::AbstractVector, λ0
     # Wtres = norm(W*model.-Wf)
     # @show Wtres, ρ, c
 
-    PartialFracRational(λ, ρ, c; polyMin=zmin, polyMax=zmax)
+    PartialFracRational(λ, ρ, c)
 end

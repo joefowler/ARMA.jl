@@ -237,9 +237,9 @@ end
     bases=[.999,.98,.7+.1im,.7-.1im]
     test_sum_exp(ampls, bases, 400)
 
-    # ampls=[7.0,5,3-1im,3+1im]
-    # bases=[.99,.9,.1+.8im,.1-.8im]
-    # test_sum_exp(ampls, bases, 400)
+    ampls=[7.0,5,3-1im,3+1im]
+    bases=[.98,.9,.5+.7im,.5-.7im]
+    test_sum_exp(ampls, bases, 400)
 
     ampls=[1,2,3,4,5]
     bases=[.999, .95, .9, .8, .5]
